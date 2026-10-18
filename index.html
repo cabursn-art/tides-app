@@ -22,6 +22,7 @@
   color-scheme:dark;
 }
 html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
@@ -255,7 +256,7 @@ function drawDay(spot,dayStr,d){
   if(cm&&om){let wins=[],prev=null,a=0;
     for(let x=0;x<=24.0001;x+=0.1){const g=Math.abs(cm.cur(x))<S.curMax&&wl(x)===0&&sl(x)===0;if(prev!==null&&g!==prev){if(prev)wins.push([a,x]);a=x;}prev=g;}
     if(prev)wins.push([a,24]);wins=wins.filter(w=>w[1]-w[0]>0.4);
-    wins.forEach(w=>{s+=`<rect x="${X(w[0])}" y="${sy-7}" width="${X(w[1])-X(w[0])}" height="14" rx="3" fill="#5ad38a"/>`;s+=`<text x="${(X(w[0])+X(w[1]))/2}" y="${sy+22}" text-anchor="middle" font-size="10" fill="#5ad38a">${fmt(w[0])}–${fmt(w[1])}</text>`;});
+    wins.forEach((w,i)=>{s+=`<rect x="${X(w[0])}" y="${sy-7}" width="${X(w[1])-X(w[0])}" height="14" rx="3" fill="#5ad38a"/>`;const cx=(X(w[0])+X(w[1]))/2;const tight=i>0&&cx-(X(wins[i-1][0])+X(wins[i-1][1]))/2<78;s+=`<text x="${cx}" y="${sy+(tight?34:22)}" text-anchor="middle" font-size="10" fill="#5ad38a">${fmt(w[0])}–${fmt(w[1])}</text>`;});
     if(!wins.length)s+=`<text x="${(x0+x1)/2}" y="${sy+22}" text-anchor="middle" font-size="10" fill="#8e9bb8">No window today</text>`;
   }else{s+=`<text x="${(x0+x1)/2}" y="${sy+22}" text-anchor="middle" font-size="10" fill="#8e9bb8">${om?'Needs tide data':'Needs wind and swell forecast'}</text>`;}
 
