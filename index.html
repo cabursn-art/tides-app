@@ -1,5 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Slack Finder</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Slack Finder">
+<meta name="theme-color" content="#1a2847">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: one column phone app, sticky header with spot picker, two views swapped by hash. Single dark look by choice (matches the harbor app it extends). */
@@ -65,6 +75,8 @@ svg{display:block;width:100%;height:auto}
 .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
 @media (prefers-reduced-motion:no-preference){.row{transition:background .15s}}
 </style>
+</head>
+<body>
 
 <div class="hdr">
   <button id="btnSpot" aria-label="Choose spot"><span id="spotName">Pillar Point Harbor</span><span style="color:var(--muted);font-weight:400">▾</span></button>
@@ -334,3 +346,6 @@ document.getElementById('btnSettings').onclick=()=>{
 render();
 })();
 </script>
+
+</body>
+</html>
