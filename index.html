@@ -40,7 +40,8 @@ main{padding-block:12px 32px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .daynav .d small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
 .status{font-size:12px;color:var(--muted);min-height:16px;margin:2px 0 8px;display:flex;flex-wrap:wrap;gap:4px 12px}
 .status .err{color:var(--warn)}
-svg{display:block;width:100%;height:auto}
+#chart{display:block;width:100%;height:auto}
+.moon{width:16px;height:16px;flex:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:11px;color:var(--fg2);margin-top:8px}
 .legend span{display:flex;align-items:center;gap:4px}
 .sw{width:14px;height:3px;border-radius:2px;display:inline-block}
@@ -50,10 +51,11 @@ svg{display:block;width:100%;height:auto}
 .cal .hd span{text-align:center}
 .row{display:flex;align-items:center;height:42px;background:none;border:0;color:inherit;font:inherit;padding:0;width:100%;text-align:left;border-radius:6px}
 .row:active{background:var(--panel2)}
-.row .mid{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-width:0}
-.row .lo,.row .hi{position:absolute;font-size:12px;color:var(--fg2);width:40px;font-variant-numeric:tabular-nums}
-.row .lo{left:0;text-align:right}.row .hi{right:0;text-align:left}
-.row .bar{height:32px;min-width:118px;border-radius:6px;background:var(--bar);border:0.5px solid var(--muted);display:flex;align-items:center;justify-content:center;gap:5px;font-size:14px;font-weight:600;white-space:nowrap}
+.row .mid{flex:1;display:flex;align-items:center;min-width:0}
+.row .bw{flex:1;display:flex;justify-content:center;min-width:0}
+.row .lo,.row .hi{flex:none;font-size:12px;color:var(--fg2);width:44px;font-variant-numeric:tabular-nums}
+.row .lo{text-align:right;padding-right:4px}.row .hi{text-align:left;padding-left:4px}
+.row .bar{height:32px;min-width:112px;max-width:100%;box-sizing:border-box;border-radius:6px;background:var(--bar);border:0.5px solid var(--muted);display:flex;align-items:center;justify-content:center;gap:5px;font-size:14px;font-weight:600;white-space:nowrap}
 .row .bar.today{background:var(--bar-today);color:var(--today)}
 .row .bar.go{background:var(--good-dim);border:1.5px solid var(--good)}
 .row .bar .wd{font-size:11px;font-weight:400;color:var(--muted)}
@@ -104,7 +106,7 @@ svg{display:block;width:100%;height:auto}
   <div id="viewCal" hidden>
     <div class="status" id="statusCal"></div>
     <div class="cal">
-      <div class="hd"><span style="flex:1"></span><span style="width:60px">Swell<br>ft · sec</span><span style="width:44px">Wind<br>mph</span></div>
+      <div class="hd"><span style="flex:1"></span><span style="width:64px">Swell<br>ft · sec</span><span style="width:44px">Wind<br>mph</span></div>
       <div id="calRows"></div>
     </div>
     <div class="legend">
@@ -280,7 +282,7 @@ function drawDay(spot,dayStr,d){
 }
 
 function moonPhase(ds){const [y,m,dd]=ds.split('-').map(Number);const t=Date.UTC(y,m-1,dd,20)/864e5-10962.76;const ph=((t/29.530588853)%1+1)%1;return {ill:(1-Math.cos(2*Math.PI*ph))/2,wax:ph<0.5};}
-function moonSVG(f,wax){const r=7,rx=r*Math.abs(1-2*f),big=f>0.5?1:0;const lit=`M0,${-r} A${r},${r} 0 0 1 0,${r} A${rx},${r} 0 0 ${big} 0,${-r} Z`;return `<svg width="16" height="16" viewBox="-8 -8 16 16" style="flex:none"><circle r="${r}" fill="#2e3d5e" stroke="#8a97b3" stroke-width="0.6"/><g transform="scale(${wax?1:-1},1)"><path d="${lit}" fill="#e8edf7"/></g></svg>`;}
+function moonSVG(f,wax){const r=7,rx=r*Math.abs(1-2*f),big=f>0.5?1:0;const lit=`M0,${-r} A${r},${r} 0 0 1 0,${r} A${rx},${r} 0 0 ${big} 0,${-r} Z`;return `<svg class="moon" width="16" height="16" viewBox="-8 -8 16 16"><circle r="${r}" fill="#2e3d5e" stroke="#8a97b3" stroke-width="0.6"/><g transform="scale(${wax?1:-1},1)"><path d="${lit}" fill="#e8edf7"/></g></svg>`;}
 function drawCal(spot,d){
   const rows=document.getElementById('calRows');const st=document.getElementById('statusCal');const today=todayStr();
   let h='';const days=[];for(let i=-2;i<=27;i++)days.push(addDays(today,i));
@@ -293,10 +295,10 @@ function drawCal(spot,d){
     const wd=dow(ds),we=wd==='Sat'||wd==='Sun';const [,mm,dd]=ds.split('-');const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mm-1];
     const pill=(txt,lvl,w)=>lvl==null?`<span class="pill n" style="width:${w}px">—</span>`:`<span class="pill ${'gyr'[lvl]}" style="width:${w}px">${txt}</span>`;
     h+=`<button class="row" data-day="${ds}">
-      <span class="mid"><span class="lo">${lo==null?'':lo.toFixed(1)+' ft'}</span>
-      <span class="bar${ds===today?' today':''}${go?' go':''}" style="width:${pct}%">${moonSVG(mp.ill,mp.wax)}<span class="wd${we?' we':''}">${wd}</span>${mon} ${+dd}</span>
+      <span class="mid"><span class="lo">${lo==null?'':lo.toFixed(1)+' ft'}</span><span class="bw">
+      <span class="bar${ds===today?' today':''}${go?' go':''}" style="width:${pct}%">${moonSVG(mp.ill,mp.wax)}<span class="wd${we?' we':''}">${wd}</span>${mon} ${+dd}</span></span>
       <span class="hi">${hi==null?'':hi.toFixed(1)+' ft'}</span></span>
-      <span class="pc" style="width:60px">${pill(swv==null?'':swv.toFixed(0)+' · '+Math.round(swp)+'s',slv,54)}</span>
+      <span class="pc" style="width:64px">${pill(swv==null?'':swv.toFixed(1)+' · '+Math.round(swp)+'s',slv,58)}</span>
       <span class="pc" style="width:44px">${pill(wmax==null?'':Math.round(wmax),wlv,36)}</span></button>`;
   }
   rows.innerHTML=h;
