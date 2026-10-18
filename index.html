@@ -106,7 +106,7 @@ main{padding-block:12px 32px;padding-left:max(16px,env(safe-area-inset-left,0px)
   <div id="viewCal" hidden>
     <div class="status" id="statusCal"></div>
     <div class="cal">
-      <div class="hd"><span style="flex:1"></span><span style="width:64px">Swell<br>ft · sec</span><span style="width:44px">Wind<br>mph</span></div>
+      <div class="hd"><span style="flex:1" id="calHint"></span><span style="width:64px">Swell<br>ft · sec</span><span style="width:44px">Wind<br>mph</span></div>
       <div id="calRows"></div>
     </div>
     <div class="legend">
@@ -131,7 +131,7 @@ const SPOTS={
  duxbury:{name:'Duxbury Reef',short:'Duxbury',tide:'9415020',lat:37.88,lon:-122.70,cur:null,shadow:[],open:['W','WNW','NW','SW']},
  monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.62,lon:-121.92,cur:null,shadow:['NW','WNW','W'],open:['N','NNW']}
 };
-const DEFAULTS={curMax:0.7,swellMax:6,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
+const DEFAULTS={fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,curMax:0.7,swellMax:6,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
 let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
@@ -257,7 +257,8 @@ function drawDay(spot,dayStr,d){
   s+=`<rect x="${x0}" y="${sy-7}" width="${x1-x0}" height="14" rx="3" fill="#2a3a5c"/>`;
   if(cm&&om){let wins=[],prev=null,a=0;
     for(let x=0;x<=24.0001;x+=0.1){const g=Math.abs(cm.cur(x))<S.curMax&&wl(x)===0&&sl(x)===0;if(prev!==null&&g!==prev){if(prev)wins.push([a,x]);a=x;}prev=g;}
-    if(prev)wins.push([a,24]);wins=wins.filter(w=>w[1]-w[0]>0.4);
+    if(prev)wins.push([a,24]);wins=wins.map(w=>[Math.max(w[0],S.dayStart),Math.min(w[1],S.dayEnd)]).filter(w=>w[1]-w[0]>0.4);
+    s+=`<rect x="${X(S.dayStart)}" y="${sy-9}" width="${X(S.dayEnd)-X(S.dayStart)}" height="18" rx="4" fill="none" stroke="#55627f" stroke-width="0.6"/>`;
     wins.forEach((w,i)=>{s+=`<rect x="${X(w[0])}" y="${sy-7}" width="${X(w[1])-X(w[0])}" height="14" rx="3" fill="#5ad38a"/>`;const cx=(X(w[0])+X(w[1]))/2;const tight=i>0&&cx-(X(wins[i-1][0])+X(wins[i-1][1]))/2<78;s+=`<text x="${cx}" y="${sy+(tight?34:22)}" text-anchor="middle" font-size="10" fill="#5ad38a">${fmt(w[0])}–${fmt(w[1])}</text>`;});
     if(!wins.length)s+=`<text x="${(x0+x1)/2}" y="${sy+22}" text-anchor="middle" font-size="10" fill="#8e9bb8">No window today</text>`;
   }else{s+=`<text x="${(x0+x1)/2}" y="${sy+22}" text-anchor="middle" font-size="10" fill="#8e9bb8">${om?'Needs tide data':'Needs wind and swell forecast'}</text>`;}
@@ -289,8 +290,12 @@ function drawCal(spot,d){
   for(const ds of days){
     let lo=null,hi=null;if(d.tides){const vs=d.tides.filter(p=>p.t.slice(0,10)===ds).map(p=>p.v);if(vs.length){lo=Math.min(...vs);hi=Math.max(...vs);}}
     const om=omSeries(d.om,ds);let wmax=null,swv=null,swp=null,swd=null;
-    if(om&&om.has(6)&&om.has(18)){wmax=0;for(let x=6;x<=18;x+=1){const w=om.wind(x);if(w!=null&&w>wmax){wmax=w;}const v=om.sw(x);if(v!=null&&(swv==null||v>swv)){swv=v;swp=om.per(x);swd=om.dir(x);}}}
-    const wlv=windLvl(wmax),slv=swellLvl(swv,swp,swd,spot);const go=wlv===0&&slv===0;
+    let wlv=null,slv=null;
+    if(om&&om.has(S.fishStart)&&om.has(S.fishEnd)){const hrs=[];for(let x=S.fishStart;x<=S.fishEnd;x+=1){const w=om.wind(x),v=om.sw(x);if(w==null||v==null)continue;hrs.push({w,v,p:om.per(x),d:om.dir(x)});}
+      if(hrs.length){const bw=hrs.slice().sort((a,b)=>a.w-b.w),bs=hrs.slice().sort((a,b)=>a.v-b.v);const mw=bw[Math.floor(bw.length/2)],ms=bs[Math.floor(bs.length/2)];
+        wmax=mw.w;swv=ms.v;swp=ms.p;swd=ms.d;wlv=windLvl(wmax);slv=swellLvl(swv,swp,swd,spot);
+        if(hrs.some(r=>windLvl(r.w)===2))wlv=2;if(hrs.some(r=>swellLvl(r.v,r.p,r.d,spot)===2))slv=2;}}
+    const go=wlv===0&&slv===0;
     const mp=moonPhase(ds);const range=(hi!=null&&lo!=null)?hi-lo:0;const pct=Math.round(clamp(range/8,0.3,1)*100);
     const wd=dow(ds),we=wd==='Sat'||wd==='Sun';const [,mm,dd]=ds.split('-');const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mm-1];
     const pill=(txt,lvl,w)=>lvl==null?`<span class="pill n" style="width:${w}px">—</span>`:`<span class="pill ${'gyr'[lvl]}" style="width:${w}px">${txt}</span>`;
@@ -301,7 +306,7 @@ function drawCal(spot,d){
       <span class="pc" style="width:64px">${pill(swv==null?'':swv.toFixed(1)+' · '+Math.round(swp)+'s',slv,58)}</span>
       <span class="pc" style="width:44px">${pill(wmax==null?'':Math.round(wmax),wlv,36)}</span></button>`;
   }
-  rows.innerHTML=h;
+  rows.innerHTML=h;document.getElementById('calHint').textContent=`Pills: ${fmt(S.fishStart)}–${fmt(S.fishEnd)}`;
   st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('');
 }
 
@@ -339,6 +344,7 @@ document.getElementById('btnSpot').onclick=()=>{
 document.getElementById('btnSettings').onclick=()=>{
   const f=(k,l,step)=>`<label for="s_${k}">${l}</label><input id="s_${k}" type="number" step="${step||0.1}" value="${S[k]}">`;
   openSheet('<h2>Settings</h2><div class="set">'+
+   '<h3>Fishing hours</h3>'+f('fishStart','Calendar pills judge from (hour, 0–23)',1)+f('fishEnd','…to (hour)',1)+f('dayStart','Day view windows from (hour)',1)+f('dayEnd','…to (hour)',1)+
    '<h3>Thresholds</h3>'+f('curMax','Slow water: current under (kt)')+f('windGood','Good wind: up to (mph)',1)+f('windMarg','Marginal wind: up to (mph)',1)+f('swellMax','Fishable swell: height up to (ft)',0.5)+f('periodRatio','…and period at least × height',0.1)+f('openPenalty','Penalize swell from exposed directions (1 on, 0 off)',1)+
    '<h3>Current model (Point Lobos fit)</h3>'+f('lagH0','Lag after high: base (min)',1)+f('lagH1','Lag after high: + per ft of swing',0.5)+f('lagL0','Lag after low: base (min)',1)+f('lagL1','Lag after low: + per ft of swing in',0.5)+f('lagL2','Lag after low: − per ft of swing out',0.5)+f('ktPerFt','Peak current per ft of swing (kt)',0.01)+
    '</div><div class="btnrow"><button id="sReset">Reset defaults</button><button id="sRefresh">Refresh data</button><button id="sSave" class="pri">Save</button></div>'+
