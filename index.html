@@ -136,7 +136,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.9';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -347,11 +347,12 @@ document.getElementById('btnSettings').onclick=()=>{
    '<h3>Fishing hours</h3>'+f('fishStart','Calendar pills judge from (hour, 0–23)',1)+f('fishEnd','…to (hour)',1)+f('dayStart','Day view windows from (hour)',1)+f('dayEnd','…to (hour)',1)+
    '<h3>Thresholds</h3>'+f('curMax','Slow water: current under (kt)')+f('windGood','Good wind: up to (mph)',1)+f('windMarg','Marginal wind: up to (mph)',1)+f('swellMax','Fishable swell: height up to (ft)',0.5)+f('periodRatio','…and period at least × height',0.1)+f('openPenalty','Penalize swell from exposed directions (1 on, 0 off)',1)+
    '<h3>Current model (Point Lobos fit)</h3>'+f('lagH0','Lag after high: base (min)',1)+f('lagH1','Lag after high: + per ft of swing',0.5)+f('lagL0','Lag after low: base (min)',1)+f('lagL1','Lag after low: + per ft of swing in',0.5)+f('lagL2','Lag after low: − per ft of swing out',0.5)+f('ktPerFt','Peak current per ft of swing (kt)',0.01)+
-   '</div><div class="btnrow"><button id="sReset">Reset defaults</button><button id="sRefresh">Refresh data</button><button id="sSave" class="pri">Save</button></div>'+
+   '</div><div class="btnrow"><button id="sReset">Reset defaults</button><button id="sRefresh">Refresh data</button><button id="sSave" class="pri">Save</button></div><div class="btnrow"><button id="sReload">Reload app (build '+BUILD+')</button></div>'+
    '<p class="note">Slack lags and peak speeds for every spot except the Golden Gate are estimated from the tide curve using coefficients fitted to NOAA\'s Point Lobos station. They are a starting point; tune them against your own drift readings.</p>');
   box.querySelector('#sSave').onclick=()=>{for(const k of Object.keys(DEFAULTS)){const el=box.querySelector('#s_'+k);if(el&&el.value!=='')S[k]=+el.value;}store.set('sf.settings',S);sheet.hidden=true;render();};
   box.querySelector('#sReset').onclick=()=>{S={...DEFAULTS};store.set('sf.settings',S);sheet.hidden=true;render();};
   box.querySelector('#sRefresh').onclick=()=>{sheet.hidden=true;render(true);};
+  box.querySelector('#sReload').onclick=()=>{location.href=location.pathname+'?v='+Date.now()+location.hash;};
 };
 render();
 })();
