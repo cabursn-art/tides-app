@@ -225,9 +225,9 @@ function swellLvl(h,p,dirDeg,spot){if(h==null||p==null)return null;let lvl=h>S.s
 const COL=['#5ad38a','#e9b949','#e36a6a'];
 function drawDay(spot,dayStr,d){
   const svg=document.getElementById('chart');const st=document.getElementById('statusDay');
-  const x0=40;let XE=374;const X=h=>x0+(XE-x0)*h/24;let s='';
+  const x0=8;let XE=372;const X=h=>x0+(XE-x0)*h/24;let s='';
   const axisX=y=>{for(let h=2;h<24;h+=2){const lab=h===12?'noon':(h<12?h:h-12);s+=`<text x="${X(h)}" y="${y}" text-anchor="middle" font-size="10" fill="#8e9bb8">${lab}</text>`;}};
-  const grid=(vals,f,Yf)=>{for(const v of vals){s+=`<line x1="${x0}" y1="${Yf(v)}" x2="${XE}" y2="${Yf(v)}" stroke="#55627f" stroke-width="0.6"/><text x="${x0-4}" y="${Yf(v)+4}" text-anchor="end" font-size="10" fill="#8e9bb8">${f(v)}</text>`;}};
+  const grid=(vals,f,Yf)=>{for(const v of vals){s+=`<line x1="${x0}" y1="${Yf(v)}" x2="${XE}" y2="${Yf(v)}" stroke="#55627f" stroke-width="0.6"/><text x="${x0+3}" y="${Yf(v)-3}" text-anchor="start" font-size="10" fill="#8e9bb8">${f(v)}</text>`;}};
   const title=(y,t)=>{s+=`<text x="${x0}" y="${y}" font-size="11" fill="#c9d2e3">${t}</text>`;};
   const bands=(Yf,e)=>{for(let i=0;i<3;i++)s+=`<rect x="${x0}" y="${Yf(e[i+1])}" width="${XE-x0}" height="${Yf(e[i])-Yf(e[i+1])}" fill="${COL[i]}" opacity="0.07"/>`;};
   const tiered=(fn,Yf,lvl,w,dash)=>{let segs=[],prev=null,seg=[];for(let x=0;x<=24.0001;x+=0.1){const v=fn(x);if(v==null){if(seg.length){segs.push({g:prev,pts:seg});seg=[];prev=null;}continue;}const g=lvl(x);if(prev!==null&&g!==prev){segs.push({g:prev,pts:seg});seg=[seg[seg.length-1]];}seg.push([x,v]);prev=g;}if(seg.length)segs.push({g:prev,pts:seg});
@@ -271,10 +271,10 @@ function drawDay(spot,dayStr,d){
   else s+=`<text x="${(x0+XE)/2}" y="${(y0+y1)/2}" text-anchor="middle" font-size="12" fill="#8e9bb8">Forecast not available for this day</text>`;
   axisX(y1+13);
   // swell
-  XE=344;y0=422;y1=527;const hmax=om?Math.max(8,Math.ceil((Math.max(...[3,12,21].map(h=>om.sw(h)||0))+1)/2)*2):8;const Yh=v=>y1-(y1-y0)*v/hmax,Yp=v=>y1-(y1-y0)*v/20;
+  y0=422;y1=527;const hmax=om?Math.max(8,Math.ceil((Math.max(...[3,12,21].map(h=>om.sw(h)||0))+1)/2)*2):8;const Yh=v=>y1-(y1-y0)*v/hmax,Yp=v=>y1-(y1-y0)*v/20;
   title(y0-6,'Swell height (ft) and period (s)');bands(Yh,[0,Math.min(S.swellMax*0.67,hmax),Math.min(S.swellMax,hmax),hmax]);
   const ht=[];for(let v=0;v<=hmax;v+=hmax>8?4:2)ht.push(v);grid(ht,v=>v+' ft',Yh);
-  for(const v of [0,10,20])s+=`<text x="${XE+6}" y="${Yp(v)+4}" font-size="10" fill="#8e9bb8">${v} s</text>`;
+  for(const v of [0,10,20])s+=`<text x="${XE-3}" y="${Yp(v)-3}" text-anchor="end" font-size="10" fill="#8e9bb8">${v} s</text>`;
   if(om){tiered(om.per,Yp,()=>-2,2,true);tiered(om.sw,Yh,sl,3);
     [3,12,21].forEach(h=>{const v=om.sw(h),p=om.per(h);if(v==null)return;s+=`<text x="${X(h)}" y="${Yh(v)+16}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.dir(h))} ${v.toFixed(1)} ft</text><text x="${X(h)}" y="${Yp(p)-7}" text-anchor="middle" font-size="10" fill="#8e9bb8">${Math.round(p)} s</text>`;});}
   axisX(y1+13);
