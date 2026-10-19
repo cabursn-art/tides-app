@@ -122,10 +122,10 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 'use strict';
 // ---------- spots ----------
 const SPOTS={
- pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.495,lon:-122.49,cur:null,shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
  fortross:{name:'Fort Ross',short:'Fort Ross',tide:'9416024',lat:38.51,lon:-123.25,cur:null,shadow:[],open:['NW','WNW','W','SW']},
- gate:{name:'Golden Gate ship channel',short:'Golden Gate',tide:'9414290',lat:37.78,lon:-122.57,cur:'PCT0201',shadow:[],open:['W','WNW','NW','SW']},
  duxbury:{name:'Duxbury Reef',short:'Duxbury',tide:'9415020',lat:37.88,lon:-122.70,cur:null,shadow:[],open:['W','WNW','NW','SW']},
+ gate:{name:'Golden Gate ship channel',short:'Golden Gate',tide:'9414290',lat:37.78,lon:-122.57,cur:'PCT0201',shadow:[],open:['W','WNW','NW','SW']},
+ pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.495,lon:-122.49,cur:null,shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
  monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.62,lon:-121.92,cur:null,shadow:['NW','WNW','W'],open:['N','NNW']}
 };
 const DEFAULTS={fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,curMax:0.7,swellGood:5,swellMax:7,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
@@ -133,7 +133,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.15';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.16';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -276,7 +276,7 @@ function drawDay(spot,dayStr,d){
   const ht=[];for(let v=0;v<=hmax;v+=hmax>8?4:2)ht.push(v);grid(ht,v=>v+' ft',Yh);
   for(const v of [0,10])s+=`<text x="${XE-3}" y="${Yp(v)-3}" text-anchor="end" font-size="10" fill="#8e9bb8">${v} s</text>`;
   if(om){const ex=[];for(let x=S.dayStart;x<=S.dayEnd;x+=0.5){const inf=swellInfo(om.wave(x),om.per(x),om.dir(x),spot);if(inf.exposed)ex.push({x,dir:inf.dir});}
-    if(ex.length){const dirs=[...new Set(ex.map(e=>e.dir))].join('/');const t=`Exposed swell ${dirs} ${fmt(ex[0].x)}–${fmt(ex[ex.length-1].x)}`;const tw=t.length*5.6+16;s+=`<rect x="${XE-tw}" y="${y0-18}" width="${tw}" height="15" rx="7.5" fill="#e9b949"/><text x="${XE-tw/2}" y="${y0-7}" text-anchor="middle" font-size="9" font-weight="600" fill="#3d2e00">${t}</text>`;}
+    if(ex.length){const dirs=[...new Set(ex.map(e=>e.dir))].join('/');const t=`Exposed swell ${dirs} ${fmt(ex[0].x)}–${fmt(ex[ex.length-1].x)}`;const tw=t.length*5.6+16;s+=`<rect x="${XE-tw-4}" y="${y0+4}" width="${tw}" height="15" rx="7.5" fill="#e9b949"/><text x="${XE-4-tw/2}" y="${y0+15}" text-anchor="middle" font-size="9" font-weight="600" fill="#3d2e00">${t}</text>`;}
     tiered(om.per,Yp,()=>-2,2,true);tiered(om.sw,Yh,()=>-3,1.5,false);tiered(om.wave,Yh,sl,3);
     [3,12,21].forEach(h=>{const v=om.wave(h),p=om.per(h),sv=om.sw(h);if(v==null)return;s+=`<text x="${X(h)}" y="${Yh(v)+16}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.dir(h))} ${v.toFixed(1)} ft</text><text x="${X(h)}" y="${Yp(p)-7}" text-anchor="middle" font-size="10" fill="#8e9bb8">${Math.round(p)} s</text>`;});}
   axisX(y1+13);
