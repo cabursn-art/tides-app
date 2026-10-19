@@ -134,7 +134,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.20';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.21';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -182,15 +182,15 @@ async function load(spot,force){
 }
 
 // ---------- models ----------
-function tideModel(tides,dayStr){ // cosine between extrema; returns {tide(x), ext:[[h,v,'H'|'L']]}
-  const ext=tides.map(p=>[hoursFrom(dayStr,p.t),p.v,p.type]).filter(e=>e[0]>-30&&e[0]<54);
+function tideModel(tides,dayStr,hmax){ // cosine between extrema; returns {tide(x), ext:[[h,v,'H'|'L']]}
+  const H=hmax||54;const ext=tides.map(p=>[hoursFrom(dayStr,p.t),p.v,p.type]).filter(e=>e[0]>-30&&e[0]<H);
   const tide=x=>{if(ext.length<2)return 0;let i=0;while(i<ext.length-2&&x>ext[i+1][0])i++;const [t1,h1]=ext[i],[t2,h2]=ext[i+1];return (h1+h2)/2+(h1-h2)/2*Math.cos(Math.PI*clamp((x-t1)/(t2-t1),0,1));};
   return {tide,ext};
 }
-function currentModel(ext,curRows,dayStr){ // returns {cur(x), slacks:[{t,turn,ty,h,src}]}
-  let lobes=[],slacks=[];
+function currentModel(ext,curRows,dayStr,hmax){ // returns {cur(x), slacks:[{t,turn,ty,h,src}]}
+  let lobes=[],slacks=[];const H=hmax||54;
   if(curRows&&curRows.length>3){ // real NOAA max/slack
-    const rows=curRows.map(c=>({h:hoursFrom(dayStr,c.t),type:c.type,v:c.v})).filter(r=>r.h>-30&&r.h<54);
+    const rows=curRows.map(c=>({h:hoursFrom(dayStr,c.t),type:c.type,v:c.v})).filter(r=>r.h>-30&&r.h<H);
     let prevMax=null;
     for(const r of rows){if(r.type==='slack'){if(prevMax)lobes.push({a:r.h,peak:0,prev:prevMax});slacks.push({t:r.h,src:'noaa'});}else prevMax=r;}
     // lobe between consecutive slacks carries the max that falls between them
@@ -346,7 +346,7 @@ function drawSpots(){
     const row=(label,hgt,fn)=>{out+=`<div style="display:flex;align-items:stretch;height:${hgt}px;"><div class="lab" style="width:${LW}px;font-size:9px;">${label}</div>`;cells.forEach((c,i)=>{out+=fn(c,i);});out+=`</div>`;};
     row('wind',19,(c,i)=>{const l=windLvlG(c.w,c.g);const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" style="width:${CW}px;font-size:10px;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':arrow(c.wd,fg)+Math.round(c.w)}</div>`;});
     row('seas',21,(c,i)=>{const inf=swellInfo(c.sw,c.p,c.sd,key);const l=inf.lvl;const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" style="width:${CW}px;flex-direction:column;gap:0;line-height:1;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':`<span style="font-size:10px">${arrow(c.sd,fg)}${c.sw.toFixed(0)}${inf.exposed?'<span style="font-size:8px">⚑</span>':''}</span><span style="font-size:7px;font-weight:400;opacity:.8">${Math.round(c.p)}s</span>`}</div>`;});
-    let tm=null,cm=null;if(d.tides){tm=tideModel(d.tides,today);cm=currentModel(tm.ext,d.cur,today);}
+    let tm=null,cm=null;if(d.tides){tm=tideModel(d.tides,today,ND*24+30);cm=currentModel(tm.ext,d.cur,today,ND*24+30);}
     const TH=28,BY=14;let svg=`<svg width="${W}" height="${TH}" viewBox="0 0 ${W} ${TH}" style="display:block">`;
     for(let dd=0;dd<ND;dd++){svg+=`<rect x="${LW+dd*DW}" y="${BY-4}" width="${DW}" height="8" rx="2" fill="#2a3a5c"/>`;
       if(cm&&om){let a=null;for(let h=dd*24+S.dayStart;h<=dd*24+S.dayEnd+0.001;h+=0.1){const g=om.has(h)&&Math.abs(cm.cur(h))<S.curMax&&windLvlG(om.wind(h),om.gust(h))===0&&swellLvl(om.wave(h),om.per(h),om.dir(h),key)===0;if(g&&a===null)a=h;if((!g||h>=dd*24+S.dayEnd)&&a!==null){const b=g?h:h-0.1;if(b-a>0.4)svg+=`<rect x="${X(a)}" y="${BY-4}" width="${X(b)-X(a)}" height="8" rx="2" fill="#5ad38a"/>`;a=null;}}}}
