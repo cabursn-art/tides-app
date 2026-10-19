@@ -122,19 +122,19 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 'use strict';
 // ---------- spots ----------
 const SPOTS={
- fortross:{name:'Fort Ross',short:'Fort Ross',tide:'9416024',lat:38.51,lon:-123.25,cur:null,shadow:[],open:['NW','WNW','W','SW']},
- duxbury:{name:'Duxbury Reef',short:'Duxbury',tide:'9415020',lat:37.88,lon:-122.70,cur:null,shadow:[],open:['W','WNW','NW','SW']},
- gate:{name:'Golden Gate ship channel',short:'Golden Gate',tide:'9414290',lat:37.78,lon:-122.57,cur:'PCT0201',shadow:[],open:['W','WNW','NW','SW']},
- pacifica:{name:'Pacifica · Pedro Point',short:'Pedro Point',tide:'9414131',lat:37.59,lon:-122.52,cur:null,shadow:[],open:['W','WNW','NW','SW','WSW']},
- pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.495,lon:-122.49,cur:null,shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
- monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.62,lon:-121.92,cur:null,shadow:['NW','WNW','W'],open:['N','NNW']}
+ fortross:{name:'Fort Ross',short:'Fort Ross',tide:'9416024',lat:38.49,lon:-123.31,cur:null,shadow:[],open:['NW','WNW','W','SW']},
+ duxbury:{name:'Duxbury Reef',short:'Duxbury',tide:'9415020',lat:37.86,lon:-122.76,cur:null,shadow:[],open:['W','WNW','NW','SW']},
+ gate:{name:'Golden Gate ship channel',short:'Golden Gate',tide:'9414290',lat:37.77,lon:-122.62,cur:'PCT0201',shadow:[],open:['W','WNW','NW','SW']},
+ pacifica:{name:'Pacifica · Pedro Point',short:'Pedro Point',tide:'9414131',lat:37.59,lon:-122.57,cur:null,shadow:[],open:['W','WNW','NW','SW','WSW']},
+ pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.47,lon:-122.55,cur:null,shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
+ monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.65,lon:-121.95,cur:null,shadow:['NW','WNW','W'],open:['N','NNW']}
 };
 const DEFAULTS={fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,gustWeight:0.75,curMax:0.7,swellGood:5,swellMax:7,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
 let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.21';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.22';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -167,8 +167,11 @@ async function load(spot,force){
       const mUrl=mod=>`https://marine-api.open-meteo.com/v1/marine?latitude=${sp.lat}&longitude=${sp.lon}&hourly=swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period&length_unit=imperial&timezone=${encodeURIComponent(TZ)}&past_days=3&forecast_days=10${mod?'&models='+mod:''}`;
       const wUrl=mod=>`https://api.open-meteo.com/v1/forecast?latitude=${sp.lat}&longitude=${sp.lon}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timezone=${encodeURIComponent(TZ)}&past_days=3&forecast_days=10${mod?'&models='+mod:''}`;
       const tryBoth=async(a,b)=>{try{const j=await getJSON(a);if(j.hourly){j._m='ECMWF';return j;}}catch(e){}const j=await getJSON(b);j._m='blend';return j;};
-      const [m,w]=await Promise.all([tryBoth(mUrl('ecmwf_wam025'),mUrl('')),tryBoth(wUrl('ecmwf_ifs025'),wUrl(''))]);
-      d.om={time:m.hourly.time,sw:m.hourly.swell_wave_height,per:m.hourly.swell_wave_period,dir:m.hourly.swell_wave_direction,wave:m.hourly.wave_height,wper:m.hourly.wave_period,wind:w.hourly.wind_speed_10m,wdir:w.hourly.wind_direction_10m,gust:w.hourly.wind_gusts_10m,model:m._m===w._m?m._m:m._m+'/'+w._m};
+      const soft=async u=>{try{const j=await getJSON(u);return j.hourly?j:null;}catch(e){return null;}};
+      const [m,w,w2]=await Promise.all([tryBoth(mUrl('ecmwf_wam025'),mUrl('')),tryBoth(wUrl('ecmwf_ifs025'),wUrl('')),soft(wUrl(''))]);
+      let wind=w.hourly.wind_speed_10m,gust=w.hourly.wind_gusts_10m,wtag=w._m;
+      if(w2&&w._m==='ECMWF'&&w2.hourly.time.length===w.hourly.time.length){wind=wind.map((v,i)=>{const b=w2.hourly.wind_speed_10m[i];return v==null?b:b==null?v:Math.max(v,b);});gust=gust.map((v,i)=>{const b=w2.hourly.wind_gusts_10m[i];return v==null?b:b==null?v:Math.max(v,b);});wtag='ECMWF+blend max';}
+      d.om={time:m.hourly.time,sw:m.hourly.swell_wave_height,per:m.hourly.swell_wave_period,dir:m.hourly.swell_wave_direction,wave:m.hourly.wave_height,wper:m.hourly.wave_period,wind,wdir:w.hourly.wind_direction_10m,gust,model:'waves '+m._m+' · wind '+wtag};
     })().catch(e=>d.errors.push('Wind/swell (Open-Meteo): '+e.message))
   ];
   if(sp.cur)jobs.push(getJSON(`https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=currents_predictions&station=${sp.cur}&begin_date=${ymd(t0)}&end_date=${ymd(t1)}&time_zone=lst_ldt&units=english&interval=MAX_SLACK&format=json`)
