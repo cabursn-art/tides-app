@@ -30,10 +30,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .hdr button{background:none;border:0;color:var(--fg);font:inherit;font-size:16px;font-weight:600;padding:6px 8px;border-radius:8px;display:flex;align-items:center;gap:6px}
 .hdr button:focus-visible,.tabs button:focus-visible,button:focus-visible{outline:2px solid var(--good);outline-offset:2px}
 .hdr .ico{background:var(--panel2);width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;padding:0}
-.tabs{display:flex;background:var(--panel);border-bottom:0.5px solid var(--grid);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font:inherit;font-weight:500;padding:10px 0}
-.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--good)}
-main{padding-block:12px 32px;padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px));max-width:560px;margin:0 auto}
+main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px));max-width:560px;margin:0 auto}
 .daynav{display:flex;align-items:center;justify-content:space-between;margin:0 6px 6px}
 .daynav button{background:var(--panel2);border:0;color:var(--fg);font:inherit;font-size:18px;width:40px;height:36px;border-radius:8px}
 .daynav .d{font-size:17px;font-weight:600;text-align:center}
@@ -77,6 +74,15 @@ main{padding-block:12px 32px;padding-left:max(6px,env(safe-area-inset-left,0px))
 .btnrow button{flex:1;background:var(--panel2);border:0;color:var(--fg);font:inherit;font-weight:500;padding:10px;border-radius:8px}
 .btnrow button.pri{background:var(--good);color:#0f2b1c}
 .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;background:var(--panel);border-top:0.5px solid var(--grid);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+.bnav button{flex:1;background:none;border:0;color:var(--muted);font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 6px}
+.bnav button svg{width:24px;height:24px}
+.bnav button[aria-selected="true"]{color:var(--good)}
+.strips{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px}
+.strips .cell{flex:none;display:flex;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.strips .lab{flex:none;position:sticky;left:0;background:var(--bg);font-size:10px;color:var(--muted);display:flex;align-items:center;padding-left:6px;z-index:1;box-sizing:border-box}
+.strips .arrow{display:inline-block;font-size:11px;line-height:1}
+.strips .spotname{position:sticky;left:0;display:inline-block;background:var(--bg);padding:4px 6px;color:var(--fg);font-size:13px;font-weight:600;z-index:2}
 @media (prefers-reduced-motion:no-preference){.row{transition:background .15s}}
 </style>
 </head>
@@ -86,22 +92,11 @@ main{padding-block:12px 32px;padding-left:max(6px,env(safe-area-inset-left,0px))
   <button id="btnSpot" aria-label="Choose spot"><span id="spotName">Pillar Point Harbor</span><span style="color:var(--muted);font-weight:400">▾</span></button>
   <button id="btnSettings" class="ico" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
 </div>
-<div class="tabs" role="tablist">
-  <button id="tabDay" role="tab" aria-selected="true">Day</button>
-  <button id="tabCal" role="tab" aria-selected="false">Calendar</button>
-</div>
 <main>
   <div id="viewDay">
     <div class="daynav"><button id="prevDay" aria-label="Previous day">‹</button><div class="d" id="dayTitle">Loading…</div><button id="nextDay" aria-label="Next day">›</button></div>
     <div class="status" id="statusDay"></div>
     <svg id="chart" viewBox="0 0 380 585" role="img" aria-label="Tide, optimal conditions, wind and swell for the selected day"></svg>
-    <div class="legend">
-      <span><i class="sw" style="background:var(--good)"></i>Good</span>
-      <span><i class="sw" style="background:var(--warn)"></i>Marginal</span>
-      <span><i class="sw" style="background:var(--bad)"></i>Stay in</span>
-      <span><i style="width:9px;height:9px;border-radius:50%;background:var(--panel);border:2px solid var(--good);display:inline-block"></i>Slack</span>
-      <span><i class="sw" style="height:0;border-top:2px dotted var(--muted);background:none"></i>Swell period</span>
-    </div>
   </div>
   <div id="viewCal" hidden>
     <div class="status" id="statusCal"></div>
@@ -109,15 +104,17 @@ main{padding-block:12px 32px;padding-left:max(6px,env(safe-area-inset-left,0px))
       <div class="hd"><span style="flex:1" id="calHint"></span><span style="width:64px">Swell<br>ft · sec</span><span style="width:44px">Wind<br>mph</span></div>
       <div id="calRows"></div>
     </div>
-    <div class="legend">
-      <span><i class="sq" style="background:var(--good)"></i>Good</span>
-      <span><i class="sq" style="background:var(--warn)"></i>Marginal</span>
-      <span><i class="sq" style="background:var(--bad)"></i>Stay in</span>
-      <span><i class="sq" style="background:var(--none)"></i>No forecast yet</span>
-      <span><i class="sq" style="background:var(--good-dim);border:1px solid var(--good);border-radius:3px"></i>Fishable swell, light wind</span>
-    </div>
+  </div>
+  <div id="viewSpots" hidden>
+    <div class="status" id="statusSpots"></div>
+    <div id="strips" class="strips"></div>
   </div>
 </main>
+<nav class="bnav" aria-label="Sections">
+  <button id="tabDay" data-v="day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15c3-5 5-5 8 0s5 5 8 0"/><circle cx="12" cy="6" r="2.5"/></svg><span>Day</span></button>
+  <button id="tabCal" data-v="cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Calendar</span></button>
+  <button id="tabSpots" data-v="spots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h13"/><circle cx="19" cy="12" r="1.5"/><circle cx="20" cy="17" r="1.5"/></svg><span>Spots</span></button>
+</nav>
 <div id="sheet" class="sheet" hidden><div class="box" id="sheetBox"></div></div>
 
 <script>
@@ -136,7 +133,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.9';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.10';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -310,24 +307,70 @@ function drawCal(spot,d){
   st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('');
 }
 
+
+function drawSpots(){
+  const el=document.getElementById('strips');const st=document.getElementById('statusSpots');const today=todayStr();
+  const CW=42,DW=CW*5,LW=52,ND=7;const slots=[6,9,12,15,18];const W=LW+ND*DW;
+  const X=h=>{const d=Math.floor(h/24),hh=h-d*24;return LW+d*DW+clamp((hh-S.dayStart)/(S.dayEnd-S.dayStart),0,1)*DW;};
+  const inDay=h=>{const hh=h-Math.floor(h/24)*24;return hh>=S.dayStart&&hh<=S.dayEnd;};
+  const arrow=(deg,c)=>deg==null?'':`<span class="arrow" style="transform:rotate(${deg+180}deg);color:${c}">↑</span>`;
+  const col=['#5ad38a','#e9b949','#e36a6a'],txt=['#0f2b1c','#3d2e00','#3a0c0c'];
+  let out=`<div style="display:inline-block;min-width:100%;">`;
+  out+=`<div style="display:flex;"><div style="width:${LW}px;flex:none;"></div>`;
+  for(let d=0;d<ND;d++){const ds=addDays(today,d);const [,mm,dd]=ds.split('-');out+=`<div style="width:${DW}px;flex:none;border-left:0.5px solid #55627f;padding:0 0 2px 6px;color:#fff;font-size:12px;font-weight:600;">${dow(ds)} <span style="color:#8e9bb8;font-weight:400">${+dd}</span></div>`;}
+  out+=`</div><div style="display:flex;"><div style="width:${LW}px;flex:none;"></div>`;
+  for(let d=0;d<ND;d++)slots.forEach((s,i)=>{out+=`<div style="width:${CW}px;flex:none;text-align:center;font-size:9px;color:#8e9bb8;${i===0?'border-left:0.5px solid #55627f;':''}">${s===12?'12p':s<12?s+'a':(s-12)+'p'}</div>`;});
+  out+=`</div>`;
+  let errs=[];
+  for(const key of Object.keys(SPOTS)){
+    const sp=SPOTS[key];const d=data[key]||store.get('sf.data.'+key);
+    out+=`<div style="margin-top:10px;border-top:0.5px solid #55627f;"><div style="display:flex;"><span class="spotname">${sp.name}</span></div>`;
+    if(!d||(!d.om&&!d.tides)){out+=`<div style="padding:4px 8px 8px;font-size:11px;color:#8e9bb8;">Loading…</div></div>`;continue;}
+    if(d.errors&&d.errors.length)errs.push(sp.short+': '+d.errors.join('; '));
+    const om=omSeries(d.om,today);
+    const cells=[];for(let dd=0;dd<ND;dd++)for(const s of slots){const x=dd*24+s;cells.push(om&&om.has(x)?{w:om.wind(x),wd:om.wdir(x),sw:om.sw(x),sd:om.dir(x),p:om.per(x),x}:{x});}
+    const row=(label,hgt,fn)=>{out+=`<div style="display:flex;align-items:stretch;height:${hgt}px;"><div class="lab" style="width:${LW}px;">${label}</div>`;cells.forEach((c,i)=>{out+=fn(c,i);});out+=`</div>`;};
+    row('wind',24,(c,i)=>{const l=windLvl(c.w);const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" data-spot="${key}" data-day="${addDays(today,Math.floor(c.x/24))}" style="width:${CW}px;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':arrow(c.wd,fg)+Math.round(c.w)}</div>`;});
+    row('swell',30,(c,i)=>{const l=swellLvl(c.sw,c.p,c.sd,key);const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" data-spot="${key}" data-day="${addDays(today,Math.floor(c.x/24))}" style="width:${CW}px;flex-direction:column;gap:0;line-height:1.05;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':`<span>${arrow(c.sd,fg)}${c.sw.toFixed(0)}</span><span style="font-size:8px;font-weight:400;opacity:.8">${Math.round(c.p)}s</span>`}</div>`;});
+    // tide line + go bar
+    let tm=null,cm=null;if(d.tides){tm=tideModel(d.tides,today);cm=currentModel(tm.ext,d.cur,today);}
+    const TH=30;let svg=`<svg width="${W}" height="${TH}" viewBox="0 0 ${W} ${TH}" style="display:block"><line x1="${LW}" y1="12" x2="${W}" y2="12" stroke="#55627f" stroke-width="1"/>`;
+    for(let dd=0;dd<ND;dd++)svg+=`<line x1="${LW+dd*DW}" y1="0" x2="${LW+dd*DW}" y2="${TH}" stroke="#55627f" stroke-width="0.5"/>`;
+    if(tm){for(const e of tm.ext){if(e[0]<0||e[0]>ND*24||!inDay(e[0]))continue;svg+=`<circle cx="${X(e[0])}" cy="12" r="3" fill="#ffffff"/><text x="${X(e[0])}" y="27" text-anchor="middle" font-size="8" fill="#c9d2e3">${e[2]} ${e[1].toFixed(1)}</text>`;}
+      let lastX=-99;for(const s of cm.slacks){if(s.t<0||s.t>ND*24||!inDay(s.t))continue;const x=X(s.t);svg+=`<circle cx="${x}" cy="12" r="3.5" fill="#152038" stroke="#5ad38a" stroke-width="1.8"/>`;if(x-lastX>30)svg+=`<text x="${x}" y="7" text-anchor="middle" font-size="8" fill="#5ad38a">${fmt(s.t).replace(/[ap]m$/,'')}</text>`;lastX=x;}}
+    svg+=`</svg>`;
+    out+=`<div style="position:relative;height:${TH}px;"><div class="lab" style="position:sticky;left:0;width:${LW}px;height:${TH}px;">tide</div><div style="position:absolute;left:0;top:0;">${svg}</div></div>`;
+    let bar=`<svg width="${W}" height="12" viewBox="0 0 ${W} 12" style="display:block">`;
+    for(let dd=0;dd<ND;dd++){bar+=`<rect x="${LW+dd*DW}" y="2" width="${DW}" height="8" rx="2" fill="#2a3a5c"/>`;
+      if(cm&&om){let a=null;for(let h=dd*24+S.dayStart;h<=dd*24+S.dayEnd+0.001;h+=0.1){const g=om.has(h)&&Math.abs(cm.cur(h))<S.curMax&&windLvl(om.wind(h))===0&&swellLvl(om.sw(h),om.per(h),om.dir(h),key)===0;if(g&&a===null)a=h;if((!g||h>=dd*24+S.dayEnd)&&a!==null){const b=g?h:h-0.1;if(b-a>0.4)bar+=`<rect x="${X(a)}" y="2" width="${X(b)-X(a)}" height="8" rx="2" fill="#5ad38a"/>`;a=null;}}}}
+    bar+=`</svg>`;
+    out+=`<div style="position:relative;height:12px;margin:1px 0 2px;"><div class="lab" style="position:sticky;left:0;width:${LW}px;height:12px;line-height:1;">go</div><div style="position:absolute;left:0;top:0;">${bar}</div></div></div>`;
+  }
+  out+=`</div>`;el.innerHTML=out;
+  st.innerHTML=errs.map(e=>`<span class="err">${e}</span>`).join('');
+}
+
 // ---------- app state / routing ----------
 let view='day',day=todayStr();
-function parseHash(){const hs=location.hash.slice(1);if(hs==='cal'){view='cal';}else if(/^day-\d{4}-\d{2}-\d{2}$/.test(hs)){view='day';day=hs.slice(4);}else view='day';}
-function setHash(){const want=view==='cal'?'cal':'day-'+day;if(location.hash.slice(1)!==want)history.replaceState(null,'','#'+want);}
+function parseHash(){const hs=location.hash.slice(1);if(hs==='cal'){view='cal';}else if(hs==='spots'){view='spots';}else if(/^day-\d{4}-\d{2}-\d{2}$/.test(hs)){view='day';day=hs.slice(4);}else view='day';}
+function setHash(){const want=view==='cal'?'cal':view==='spots'?'spots':'day-'+day;if(location.hash.slice(1)!==want)history.replaceState(null,'','#'+want);}
 async function render(force){
   parseHash();
-  document.getElementById('spotName').textContent=SPOTS[spotKey].name;
-  document.getElementById('tabDay').setAttribute('aria-selected',view==='day');document.getElementById('tabCal').setAttribute('aria-selected',view==='cal');
-  document.getElementById('viewDay').hidden=view!=='day';document.getElementById('viewCal').hidden=view!=='cal';
+  document.getElementById('spotName').textContent=view==='spots'?'All spots':SPOTS[spotKey].name;
+  for(const b of document.querySelectorAll('.bnav button'))b.setAttribute('aria-selected',b.dataset.v===view);
+  document.getElementById('viewDay').hidden=view!=='day';document.getElementById('viewCal').hidden=view!=='cal';document.getElementById('viewSpots').hidden=view!=='spots';
+  if(view==='spots'){drawSpots();const keys=Object.keys(SPOTS);await Promise.all(keys.map(k=>load(k,force).then(()=>{if(view==='spots')drawSpots();})));return;}
   document.getElementById('dayTitle').innerHTML=`${longDate(day).replace(/^(\w+), /,'')}<small>${dow(day)==='Sat'||dow(day)==='Sun'?'weekend':dow(day)}${day===todayStr()?' · today':''}</small>`;
   const cached=data[spotKey]||store.get('sf.data.'+spotKey);
   if(cached){if(view==='day')drawDay(spotKey,day,cached);else drawCal(spotKey,cached);}
   else{document.getElementById(view==='day'?'statusDay':'statusCal').textContent='Loading tides, currents and forecast…';}
   const d=await load(spotKey,force);
-  if(view==='day')drawDay(spotKey,day,d);else drawCal(spotKey,d);
+  if(view==='day')drawDay(spotKey,day,d);else if(view==='cal')drawCal(spotKey,d);
 }
 document.getElementById('tabDay').onclick=()=>{view='day';setHash();render();};
 document.getElementById('tabCal').onclick=()=>{view='cal';setHash();render();};
+document.getElementById('tabSpots').onclick=()=>{view='spots';setHash();render();};
+document.getElementById('strips').addEventListener('click',e=>{const c=e.target.closest('.cell');if(!c)return;spotKey=c.dataset.spot;store.set('sf.spot',spotKey);day=c.dataset.day;view='day';setHash();render();window.scrollTo({top:0});});
 document.getElementById('prevDay').onclick=()=>{day=addDays(day,-1);setHash();render();};
 document.getElementById('nextDay').onclick=()=>{day=addDays(day,1);setHash();render();};
 document.getElementById('calRows').addEventListener('click',e=>{const b=e.target.closest('.row');if(!b)return;day=b.dataset.day;view='day';setHash();render();window.scrollTo({top:0});});
