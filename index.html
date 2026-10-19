@@ -31,7 +31,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .hdr button:focus-visible,.tabs button:focus-visible,button:focus-visible{outline:2px solid var(--good);outline-offset:2px}
 .hdr .ico{background:var(--panel2);width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;padding:0}
 main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px));max-width:560px;margin:0 auto}
-.daynav{display:flex;align-items:center;justify-content:space-between;margin:0 6px 6px}
+.daynav{display:flex;align-items:center;justify-content:center;margin:0 6px 6px}
+#chart{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .daynav button{background:var(--panel2);border:0;color:var(--fg);font:inherit;font-size:18px;width:40px;height:36px;border-radius:8px}
 .daynav .d{font-size:17px;font-weight:600;text-align:center}
 .daynav .d small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
@@ -94,7 +95,7 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 </div>
 <main>
   <div id="viewDay">
-    <div class="daynav"><button id="prevDay" aria-label="Previous day">‹</button><div class="d" id="dayTitle">Loading…</div><button id="nextDay" aria-label="Next day">›</button></div>
+    <div class="daynav"><div class="d" id="dayTitle">Loading…</div></div>
     <div class="status" id="statusDay"></div>
     <svg id="chart" viewBox="0 0 380 585" role="img" aria-label="Tide, optimal conditions, wind and swell for the selected day"></svg>
   </div>
@@ -134,7 +135,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.24';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.25';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -249,7 +250,7 @@ function drawDay(spot,dayStr,d){
   const tm=d.tides?tideModel(d.tides,dayStr):null;
   const lo=tm?Math.min(...tm.ext.filter(e=>e[0]>=-2&&e[0]<=26).map(e=>e[1]),-1):-2,hi=tm?Math.max(...tm.ext.filter(e=>e[0]>=-2&&e[0]<=26).map(e=>e[1]),6):7;
   const yb=Math.floor(lo/2)*2,yt=Math.ceil(hi/2)*2;
-  let y0=24,y1=Math.round(172*SY);const Yt=f=>y1-(y1-y0)*(f-yb)/(yt-yb);
+  let y0=24,y1=Math.round(172*SY);const ty0=y0,ty1=y1;const Yt=f=>ty1-(ty1-ty0)*(f-yb)/(yt-yb);
   const ticks=[];for(let v=yb;v<=yt;v+=2)ticks.push(v);grid(ticks,v=>v+' ft',Yt);
   let cm=null;
   if(tm){cm=currentModel(tm.ext,d.cur,dayStr);
@@ -277,14 +278,14 @@ function drawDay(spot,dayStr,d){
   }else{s+=`<text x="${(x0+XE)/2}" y="${sy+22}" text-anchor="middle" font-size="10" fill="#8e9bb8">${om?'Needs tide data':'Needs wind and swell forecast'}</text>`;}
 
   // wind
-  y0=Math.round(286*SY);y1=Math.round(376*SY);const wmax=om?Math.max(20,Math.ceil((Math.max(...[3,9,15,21].map(h=>Math.max(om.wind(h)||0,om.gust(h)||0)))+2)/10)*10):20;const Yw=v=>y1-(y1-y0)*v/wmax;
+  y0=Math.round(286*SY);y1=Math.round(376*SY);const wmax=om?Math.max(20,Math.ceil((Math.max(...[3,9,15,21].map(h=>Math.max(om.wind(h)||0,om.gust(h)||0)))+2)/10)*10):20;const wy0=y0,wy1=y1;const Yw=v=>wy1-(wy1-wy0)*v/wmax;
   title(y0-6,'Wind (mph, dotted = gusts)');bands(Yw,[0,S.windGood,S.windMarg,wmax]);
   const wt=[];for(let v=0;v<=wmax;v+=10)wt.push(v);grid(wt,v=>v+' mph',Yw);
   if(om){tiered(om.gust,Yw,()=>-2,2,true);tiered(om.wind,Yw,wl,3);peaks(x=>weff(om.wind(x),om.gust(x)),5,3).forEach(p=>{const h=p.x,w=om.wind(h),g=om.gust(h);if(w==null)return;const tx=clamp(X(h),x0+34,XE-34);s+=`<text x="${tx}" y="${Yw(Math.max(w,g||0))-8}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.wdir(h))} ${Math.round(w)}${g!=null?' g'+Math.round(g):''} mph</text>`;});}
   else s+=`<text x="${(x0+XE)/2}" y="${(y0+y1)/2}" text-anchor="middle" font-size="12" fill="#8e9bb8">Forecast not available for this day</text>`;
   axisX(y1+13);
   // swell
-  y0=Math.round(422*SY);y1=Math.round(527*SY);const hmax=om?Math.max(8,Math.ceil((Math.max(...[3,12,21].map(h=>om.wave(h)||0))+1)/2)*2):8;const Yh=v=>y1-(y1-y0)*v/hmax,Yp=v=>y1-(y1-y0)*v/20;
+  y0=Math.round(422*SY);y1=Math.round(527*SY);const hmax=om?Math.max(8,Math.ceil((Math.max(...[3,12,21].map(h=>om.wave(h)||0))+1)/2)*2):8;const hy0=y0,hy1=y1;const Yh=v=>hy1-(hy1-hy0)*v/hmax,Yp=v=>hy1-(hy1-hy0)*v/20;
   title(y0-6,'Seas (ft) · dotted = swell period (s)');bands(Yh,[0,Math.min(S.swellGood,hmax),Math.min(S.swellMax,hmax),hmax]);
   const ht=[];for(let v=0;v<=hmax;v+=hmax>8?4:2)ht.push(v);grid(ht,v=>v+' ft',Yh);
   for(const v of [0,10])s+=`<text x="${XE-3}" y="${Yp(v)-3}" text-anchor="end" font-size="10" fill="#8e9bb8">${v} s</text>`;
@@ -294,7 +295,8 @@ function drawDay(spot,dayStr,d){
     peaks(om.wave,6,3).forEach(p=>{const h=p.x,v=om.wave(h);const tx=clamp(X(h),x0+30,XE-30);s+=`<text x="${tx}" y="${Yh(v)-7}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.dir(h))} ${v.toFixed(1)} ft</text>`;});
     const pp=peaks(om.per,8,2),pl=peaks(x=>-(om.per(x)||0),8,1);[...pp,...pl.map(q=>({x:q.x}))].forEach(p=>{const h=p.x,v=om.per(h);if(v==null)return;const tx=clamp(X(h),x0+14,XE-14);s+=`<text x="${tx}" y="${Yp(v)-6}" text-anchor="middle" font-size="10" fill="#8e9bb8">${Math.round(v)} s</text>`;});}
   axisX(y1+13);
-  svg.innerHTML=s;
+  s+=`<g id="scrub" style="display:none"></g>`;svg.innerHTML=s;
+  dayCtx={x0,XE,X,top:12,bottom:y1,tide:tm?tm.tide:null,cur:cm?cm.cur:null,om,Yt,Yw,Yh,Yp};
   st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'')+(om?` <button id="btnHourly" style="background:var(--panel2);border:0;color:var(--fg2);font:inherit;font-size:11px;padding:1px 8px;border-radius:9px;">hourly</button>`:'');
   const hb=document.getElementById('btnHourly');if(hb)hb.onclick=()=>{let rows='';for(let x=0;x<24;x++){const w=om.wind(x),g=om.gust(x),v=om.wave(x),p=om.per(x),dr=om.dir(x),wd=om.wdir(x);if(w==null&&v==null)continue;const wl=windLvlG(w,g),sl2=swellLvl(v,p,dr,spot);const c=l=>l==null?'#8e9bb8':['#5ad38a','#e9b949','#e36a6a'][l];rows+=`<tr><td>${fmt(x)}</td><td style="color:${c(wl)}">${w==null?'—':Math.round(w)+' g'+Math.round(g||0)} ${wd==null?'':compass(wd)}</td><td style="color:${c(sl2)}">${v==null?'—':v.toFixed(1)+' ft'} ${p==null?'':Math.round(p)+'s'} ${dr==null?'':compass(dr)}</td><td style="color:${cm&&Math.abs(cm.cur(x))<S.curMax?'#5ad38a':'#c9d2e3'}">${cm?Math.abs(cm.cur(x)).toFixed(1):'—'}</td></tr>`;}
     openSheet(`<h2>${SPOTS[spot].short} · ${longDate(dayStr)}</h2><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${d.om.model||''} · wind mph (g = gust) · seas ft, swell period, direction · current kt (modeled)</div><table style="width:100%;font-size:12px;font-variant-numeric:tabular-nums;border-collapse:collapse"><tr style="color:var(--muted);font-size:10px"><th align=left>hour</th><th align=left>wind</th><th align=left>seas</th><th align=left>cur</th></tr>${rows}</table>`);};
@@ -370,7 +372,7 @@ function drawSpots(){
   st.innerHTML=errs.map(e=>`<span class="err">${e}</span>`).join('');
 }
 // ---------- app state / routing ----------
-let view='day',day=todayStr();
+let view='day',day=todayStr(),dayCtx=null;
 function parseHash(){const hs=location.hash.slice(1);if(hs==='cal'){view='cal';}else if(hs==='spots'){view='spots';}else if(/^day-\d{4}-\d{2}-\d{2}$/.test(hs)){view='day';day=hs.slice(4);}else view='day';}
 function setHash(){const want=view==='cal'?'cal':view==='spots'?'spots':'day-'+day;if(location.hash.slice(1)!==want)history.replaceState(null,'','#'+want);}
 async function render(force){
@@ -391,8 +393,27 @@ document.getElementById('tabCal').onclick=()=>{view='cal';setHash();render();};
 document.getElementById('tabSpots').onclick=()=>{view='spots';setHash();render();};
 document.getElementById('strips').addEventListener('click',e=>{const el=document.getElementById('strips');const spEl=e.target.closest('.sp');if(!spEl)return;const inner=el.firstElementChild;const x=e.clientX-inner.getBoundingClientRect().left;const di=Math.floor((x-(+el.dataset.lw))/(+el.dataset.dw));if(di<0||di>6)return;spotKey=spEl.dataset.spot;store.set('sf.spot',spotKey);day=addDays(todayStr(),di);view='day';setHash();render();window.scrollTo({top:0});});
 window.addEventListener('resize',()=>{if(view==='day'||view==='spots')render();});
-document.getElementById('prevDay').onclick=()=>{day=addDays(day,-1);setHash();render();};
-document.getElementById('nextDay').onclick=()=>{day=addDays(day,1);setHash();render();};
+// ---- day view gestures: flick = change day, press-and-drag = scrub
+(function(){
+  const svg=document.getElementById('chart');let p=null,timer=null,scrub=false;
+  const toX=cx=>{const r=svg.getBoundingClientRect();return (cx-r.left)/r.width*380;};
+  const showScrub=xv=>{const c=dayCtx;if(!c)return;const g=svg.querySelector('#scrub');if(!g)return;const hh=clamp((xv-c.x0)/(c.XE-c.x0)*24,0,24);const x=c.X(hh);let t=`<line x1="${x}" y1="${c.top}" x2="${x}" y2="${c.bottom}" stroke="#ffffff" stroke-width="1" stroke-dasharray="3,3" opacity="0.8"/>`;
+    const lab=(y,txt,anchorRight)=>{const w=txt.length*5.8+10;const lx=anchorRight?x-6-w:x+6;t+=`<rect x="${lx}" y="${y-11}" width="${w}" height="15" rx="4" fill="#0f1a33" opacity="0.92"/><text x="${lx+5}" y="${y}" font-size="10" fill="#ffffff">${txt}</text>`;};
+    const right=x>230;
+    lab(c.top+10,fmt(hh)+(c.cur?`  ·  current ${Math.abs(c.cur(hh)).toFixed(1)} kt`:''),right);
+    if(c.tide){const v=c.tide(hh);t+=`<circle cx="${x}" cy="${c.Yt(v)}" r="4" fill="#ffffff"/>`;lab(c.Yt(v)+4,`${v.toFixed(1)} ft`,right);}
+    if(c.om){const w=c.om.wind(hh),gu=c.om.gust(hh);if(w!=null){t+=`<circle cx="${x}" cy="${c.Yw(w)}" r="4" fill="#ffffff"/>`;lab(c.Yw(w)+4,`${Math.round(w)} g${Math.round(gu||0)} mph ${compass(c.om.wdir(hh))}`,right);}
+      const v=c.om.wave(hh),pe=c.om.per(hh);if(v!=null){t+=`<circle cx="${x}" cy="${c.Yh(v)}" r="4" fill="#ffffff"/>`;lab(c.Yh(v)+4,`${v.toFixed(1)} ft · ${Math.round(pe||0)}s ${compass(c.om.dir(hh))}`,right);}}
+    g.innerHTML=t;g.style.display='';};
+  const hide=()=>{const g=svg.querySelector('#scrub');if(g)g.style.display='none';};
+  svg.addEventListener('pointerdown',e=>{p={x:e.clientX,y:e.clientY,t:Date.now(),id:e.pointerId};scrub=false;clearTimeout(timer);timer=setTimeout(()=>{if(p){scrub=true;svg.setPointerCapture(p.id);showScrub(toX(p.x));}},220);});
+  svg.addEventListener('pointermove',e=>{if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;if(scrub){showScrub(toX(e.clientX));e.preventDefault();return;}
+    if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>12){p=null;clearTimeout(timer);return;}
+    if(Math.abs(dx)>12)clearTimeout(timer);});
+  const end=e=>{clearTimeout(timer);if(!p)return;const dx=e.clientX-p.x,dt=Date.now()-p.t;const was=scrub;p=null;scrub=false;hide();
+    if(!was&&Math.abs(dx)>50&&dt<600){day=addDays(day,dx<0?1:-1);setHash();render();}};
+  svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',()=>{clearTimeout(timer);p=null;scrub=false;hide();});
+})();
 document.getElementById('calRows').addEventListener('click',e=>{const b=e.target.closest('.row');if(!b)return;day=b.dataset.day;view='day';setHash();render();window.scrollTo({top:0});});
 window.addEventListener('hashchange',()=>render());
 
