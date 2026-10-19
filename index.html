@@ -78,7 +78,7 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 .bnav button{flex:1;background:none;border:0;color:var(--muted);font:inherit;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 6px}
 .bnav button svg{width:24px;height:24px}
 .bnav button[aria-selected="true"]{color:var(--good)}
-.strips{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px}
+.strips{overflow:auto;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px;overscroll-behavior:contain}
 .strips .cell{flex:none;display:flex;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
 .strips .lab{flex:none;position:sticky;left:0;background:var(--bg);font-size:10px;color:var(--muted);display:flex;align-items:center;padding-left:6px;z-index:1;box-sizing:border-box}
 .strips .arrow{display:inline-block;font-size:11px;line-height:1}
@@ -133,7 +133,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.12';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.13';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -312,46 +312,43 @@ function drawCal(spot,d){
 
 function drawSpots(){
   const el=document.getElementById('strips');const st=document.getElementById('statusSpots');const today=todayStr();
-  const CW=42,DW=CW*5,LW=52,ND=7;const slots=[6,9,12,15,18];const W=LW+ND*DW;
+  const nav=document.querySelector('.bnav');const navH=nav?nav.getBoundingClientRect().height:0;
+  el.style.height=Math.max(240,window.innerHeight-el.getBoundingClientRect().top-navH-4)+'px';
+  const CW=40,DW=CW*5,LW=44,ND=7;const slots=[6,9,12,15,18];const W=LW+ND*DW;
   const X=h=>{const d=Math.floor(h/24),hh=h-d*24;return LW+d*DW+clamp((hh-S.dayStart)/(S.dayEnd-S.dayStart),0,1)*DW;};
   const inDay=h=>{const hh=h-Math.floor(h/24)*24;return hh>=S.dayStart&&hh<=S.dayEnd;};
   const arrow=(deg,c)=>deg==null?'':`<span class="arrow" style="transform:rotate(${deg+180}deg);color:${c}">↑</span>`;
   const col=['#5ad38a','#e9b949','#e36a6a'],txt=['#0f2b1c','#3d2e00','#3a0c0c'];
   let out=`<div style="display:inline-block;min-width:100%;">`;
+  out+=`<div style="position:sticky;top:0;z-index:3;background:var(--bg);padding-bottom:2px;">`;
   out+=`<div style="display:flex;"><div style="width:${LW}px;flex:none;"></div>`;
-  for(let d=0;d<ND;d++){const ds=addDays(today,d);const [,mm,dd]=ds.split('-');out+=`<div style="width:${DW}px;flex:none;border-left:0.5px solid #55627f;padding:0 0 2px 6px;color:#fff;font-size:12px;font-weight:600;">${dow(ds)} <span style="color:#8e9bb8;font-weight:400">${+dd}</span></div>`;}
+  for(let d=0;d<ND;d++){const ds=addDays(today,d);const [,mm,dd]=ds.split('-');const we=['Sat','Sun'].includes(dow(ds));out+=`<div style="width:${DW}px;flex:none;border-left:0.5px solid #55627f;padding:0 0 0 5px;color:${we?'#ffd27a':'#fff'};font-size:12px;font-weight:600;line-height:1.2;">${dow(ds)} <span style="color:#8e9bb8;font-weight:400">${+dd}</span></div>`;}
   out+=`</div><div style="display:flex;"><div style="width:${LW}px;flex:none;"></div>`;
-  for(let d=0;d<ND;d++)slots.forEach((s,i)=>{out+=`<div style="width:${CW}px;flex:none;text-align:center;font-size:9px;color:#8e9bb8;${i===0?'border-left:0.5px solid #55627f;':''}">${s===12?'12p':s<12?s+'a':(s-12)+'p'}</div>`;});
-  out+=`</div>`;
+  for(let d=0;d<ND;d++)slots.forEach((s,i)=>{out+=`<div style="width:${CW}px;flex:none;text-align:center;font-size:8px;color:#8e9bb8;line-height:1.1;${i===0?'border-left:0.5px solid #55627f;':''}">${s===12?'12p':s<12?s+'a':(s-12)+'p'}</div>`;});
+  out+=`</div></div>`;
   let errs=[];
   for(const key of Object.keys(SPOTS)){
     const sp=SPOTS[key];const d=data[key]||store.get('sf.data.'+key);
-    out+=`<div class="sp" data-spot="${key}" style="margin-top:10px;border-top:0.5px solid #55627f;"><div style="display:flex;"><span class="spotname">${sp.name}</span></div>`;
-    if(!d||(!d.om&&!d.tides)){out+=`<div style="padding:4px 8px 8px;font-size:11px;color:#8e9bb8;">Loading…</div></div>`;continue;}
+    out+=`<div class="sp" data-spot="${key}" style="margin-top:4px;border-top:0.5px solid #55627f;"><div style="display:flex;height:16px;"><span class="spotname" style="padding:1px 6px;font-size:11px;line-height:14px;">${sp.short}</span></div>`;
+    if(!d||(!d.om&&!d.tides)){out+=`<div style="padding:2px 8px 6px;font-size:10px;color:#8e9bb8;">Loading…</div></div>`;continue;}
     if(d.errors&&d.errors.length)errs.push(sp.short+': '+d.errors.join('; '));
     const om=omSeries(d.om,today);
     const cells=[];for(let dd=0;dd<ND;dd++)for(const s of slots){const x=dd*24+s;cells.push(om&&om.has(x)?{w:om.wind(x),wd:om.wdir(x),sw:om.wave(x),sd:om.dir(x),p:om.per(x),x}:{x});}
-    const row=(label,hgt,fn)=>{out+=`<div style="display:flex;align-items:stretch;height:${hgt}px;"><div class="lab" style="width:${LW}px;">${label}</div>`;cells.forEach((c,i)=>{out+=fn(c,i);});out+=`</div>`;};
-    row('wind',24,(c,i)=>{const l=windLvl(c.w);const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" data-spot="${key}" data-day="${addDays(today,Math.floor(c.x/24))}" style="width:${CW}px;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':arrow(c.wd,fg)+Math.round(c.w)}</div>`;});
-    row('seas',30,(c,i)=>{const l=swellLvl(c.sw,c.p,c.sd,key);const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" data-spot="${key}" data-day="${addDays(today,Math.floor(c.x/24))}" style="width:${CW}px;flex-direction:column;gap:0;line-height:1.05;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':`<span>${arrow(c.sd,fg)}${c.sw.toFixed(0)}</span><span style="font-size:8px;font-weight:400;opacity:.8">${Math.round(c.p)}s</span>`}</div>`;});
-    // tide line + go bar
+    const row=(label,hgt,fn)=>{out+=`<div style="display:flex;align-items:stretch;height:${hgt}px;"><div class="lab" style="width:${LW}px;font-size:9px;">${label}</div>`;cells.forEach((c,i)=>{out+=fn(c,i);});out+=`</div>`;};
+    row('wind',19,(c,i)=>{const l=windLvl(c.w);const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" style="width:${CW}px;font-size:10px;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':arrow(c.wd,fg)+Math.round(c.w)}</div>`;});
+    row('seas',21,(c,i)=>{const l=swellLvl(c.sw,c.p,c.sd,key);const bg=l==null?'#2a3a5c':col[l],fg=l==null?'#8e9bb8':txt[l];return `<div class="cell" style="width:${CW}px;flex-direction:column;gap:0;line-height:1;background:${bg};color:${fg};${i%5===0?'border-left:1px solid #152038;':''}">${l==null?'—':`<span style="font-size:10px">${arrow(c.sd,fg)}${c.sw.toFixed(0)}</span><span style="font-size:7px;font-weight:400;opacity:.8">${Math.round(c.p)}s</span>`}</div>`;});
     let tm=null,cm=null;if(d.tides){tm=tideModel(d.tides,today);cm=currentModel(tm.ext,d.cur,today);}
-    const TH=30;let svg=`<svg width="${W}" height="${TH}" viewBox="0 0 ${W} ${TH}" style="display:block"><line x1="${LW}" y1="12" x2="${W}" y2="12" stroke="#55627f" stroke-width="1"/>`;
-    for(let dd=0;dd<ND;dd++)svg+=`<line x1="${LW+dd*DW}" y1="0" x2="${LW+dd*DW}" y2="${TH}" stroke="#55627f" stroke-width="0.5"/>`;
-    if(tm){for(const e of tm.ext){if(e[0]<0||e[0]>ND*24||!inDay(e[0]))continue;svg+=`<circle cx="${X(e[0])}" cy="12" r="3" fill="#ffffff"/><text x="${X(e[0])}" y="27" text-anchor="middle" font-size="8" fill="#c9d2e3">${e[2]} ${e[1].toFixed(1)}</text>`;}
-      let lastX=-99;for(const s of cm.slacks){if(s.t<0||s.t>ND*24||!inDay(s.t))continue;const x=X(s.t);svg+=`<circle cx="${x}" cy="12" r="3.5" fill="#152038" stroke="#5ad38a" stroke-width="1.8"/>`;if(x-lastX>30)svg+=`<text x="${x}" y="7" text-anchor="middle" font-size="8" fill="#5ad38a">${fmt(s.t).replace(/[ap]m$/,'')}</text>`;lastX=x;}}
+    const TH=14;let svg=`<svg width="${W}" height="${TH}" viewBox="0 0 ${W} ${TH}" style="display:block">`;
+    for(let dd=0;dd<ND;dd++){svg+=`<rect x="${LW+dd*DW}" y="3" width="${DW}" height="8" rx="2" fill="#2a3a5c"/>`;
+      if(cm&&om){let a=null;for(let h=dd*24+S.dayStart;h<=dd*24+S.dayEnd+0.001;h+=0.1){const g=om.has(h)&&Math.abs(cm.cur(h))<S.curMax&&windLvl(om.wind(h))===0&&swellLvl(om.wave(h),om.per(h),om.dir(h),key)===0;if(g&&a===null)a=h;if((!g||h>=dd*24+S.dayEnd)&&a!==null){const b=g?h:h-0.1;if(b-a>0.4)svg+=`<rect x="${X(a)}" y="3" width="${X(b)-X(a)}" height="8" rx="2" fill="#5ad38a"/>`;a=null;}}}}
+    if(tm){for(const e of tm.ext){if(e[0]<0||e[0]>ND*24||!inDay(e[0]))continue;svg+=`<circle cx="${X(e[0])}" cy="7" r="2.6" fill="${e[2]==='H'?'#ffffff':'#8e9bb8'}"/>`;}
+      for(const s of cm.slacks){if(s.t<0||s.t>ND*24||!inDay(s.t))continue;svg+=`<circle cx="${X(s.t)}" cy="7" r="3" fill="#152038" stroke="#5ad38a" stroke-width="1.6"/>`;}}
     svg+=`</svg>`;
-    out+=`<div style="position:relative;height:${TH}px;"><div class="lab" style="position:sticky;left:0;width:${LW}px;height:${TH}px;">tide</div><div style="position:absolute;left:0;top:0;">${svg}</div></div>`;
-    let bar=`<svg width="${W}" height="12" viewBox="0 0 ${W} 12" style="display:block">`;
-    for(let dd=0;dd<ND;dd++){bar+=`<rect x="${LW+dd*DW}" y="2" width="${DW}" height="8" rx="2" fill="#2a3a5c"/>`;
-      if(cm&&om){let a=null;for(let h=dd*24+S.dayStart;h<=dd*24+S.dayEnd+0.001;h+=0.1){const g=om.has(h)&&Math.abs(cm.cur(h))<S.curMax&&windLvl(om.wind(h))===0&&swellLvl(om.wave(h),om.per(h),om.dir(h),key)===0;if(g&&a===null)a=h;if((!g||h>=dd*24+S.dayEnd)&&a!==null){const b=g?h:h-0.1;if(b-a>0.4)bar+=`<rect x="${X(a)}" y="2" width="${X(b)-X(a)}" height="8" rx="2" fill="#5ad38a"/>`;a=null;}}}}
-    bar+=`</svg>`;
-    out+=`<div style="position:relative;height:12px;margin:1px 0 2px;"><div class="lab" style="position:sticky;left:0;width:${LW}px;height:12px;line-height:1;">go</div><div style="position:absolute;left:0;top:0;">${bar}</div></div></div>`;
+    out+=`<div style="position:relative;height:${TH}px;"><div class="lab" style="position:sticky;left:0;width:${LW}px;height:${TH}px;font-size:9px;line-height:1;">tide</div><div style="position:absolute;left:0;top:0;">${svg}</div></div></div>`;
   }
   out+=`</div>`;el.innerHTML=out;el.dataset.lw=LW;el.dataset.dw=DW;
   st.innerHTML=errs.map(e=>`<span class="err">${e}</span>`).join('');
 }
-
 // ---------- app state / routing ----------
 let view='day',day=todayStr();
 function parseHash(){const hs=location.hash.slice(1);if(hs==='cal'){view='cal';}else if(hs==='spots'){view='spots';}else if(/^day-\d{4}-\d{2}-\d{2}$/.test(hs)){view='day';day=hs.slice(4);}else view='day';}
@@ -373,7 +370,7 @@ document.getElementById('tabDay').onclick=()=>{view='day';setHash();render();};
 document.getElementById('tabCal').onclick=()=>{view='cal';setHash();render();};
 document.getElementById('tabSpots').onclick=()=>{view='spots';setHash();render();};
 document.getElementById('strips').addEventListener('click',e=>{const el=document.getElementById('strips');const spEl=e.target.closest('.sp');if(!spEl)return;const inner=el.firstElementChild;const x=e.clientX-inner.getBoundingClientRect().left;const di=Math.floor((x-(+el.dataset.lw))/(+el.dataset.dw));if(di<0||di>6)return;spotKey=spEl.dataset.spot;store.set('sf.spot',spotKey);day=addDays(todayStr(),di);view='day';setHash();render();window.scrollTo({top:0});});
-window.addEventListener('resize',()=>{if(view==='day')render();});
+window.addEventListener('resize',()=>{if(view==='day'||view==='spots')render();});
 document.getElementById('prevDay').onclick=()=>{day=addDays(day,-1);setHash();render();};
 document.getElementById('nextDay').onclick=()=>{day=addDays(day,1);setHash();render();};
 document.getElementById('calRows').addEventListener('click',e=>{const b=e.target.closest('.row');if(!b)return;day=b.dataset.day;view='day';setHash();render();window.scrollTo({top:0});});
