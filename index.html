@@ -133,7 +133,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.13';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.14';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -216,7 +216,7 @@ function omSeries(om,dayStr){ // hourly arrays → functions of hours from daySt
 }
 const windLvl=w=>w==null?null:w<=S.windGood?0:w<=S.windMarg?1:2;
 function swellLvl(h,p,dirDeg,spot){if(h==null||p==null)return null;let lvl=h>S.swellMax?2:(h<=S.swellGood&&p>=S.periodRatio*h)?0:1;
-  if(S.openPenalty&&dirDeg!=null&&lvl<2){const c=compass(dirDeg);const sp=SPOTS[spot];if(sp.open.includes(c)&&h>=3)lvl=Math.min(2,lvl+1);}return lvl;}
+  if(S.openPenalty&&dirDeg!=null&&lvl<2){const c=compass(dirDeg);const sp=SPOTS[spot];if(sp.open.includes(c)&&h>=3)lvl=Math.min(h<=S.swellGood?1:2,lvl+1);}return lvl;}
 
 // ---------- drawing ----------
 const COL=['#5ad38a','#e9b949','#e36a6a'];
@@ -226,7 +226,7 @@ function drawDay(spot,dayStr,d){
   const nav=document.querySelector('.bnav');const navH=nav?nav.getBoundingClientRect().height:0;const top=svg.getBoundingClientRect().top;const w=svg.clientWidth||380;
   const avail=window.innerHeight-top-navH-8;const SY=clamp((avail*380/w)/585,0.62,1);svg.setAttribute('viewBox',`0 0 380 ${Math.round(585*SY)}`);
   const axisX=y=>{for(let h=2;h<24;h+=2){const lab=h===12?'noon':(h<12?h:h-12);s+=`<text x="${X(h)}" y="${y}" text-anchor="middle" font-size="10" fill="#8e9bb8">${lab}</text>`;}};
-  const grid=(vals,f,Yf)=>{for(const v of vals){s+=`<line x1="${x0}" y1="${Yf(v)}" x2="${XE}" y2="${Yf(v)}" stroke="#55627f" stroke-width="0.6"/><text x="${x0+3}" y="${Yf(v)-3}" text-anchor="start" font-size="10" fill="#8e9bb8">${f(v)}</text>`;}};
+  const grid=(vals,f,Yf)=>{const top=Math.max(...vals);for(const v of vals){s+=`<line x1="${x0}" y1="${Yf(v)}" x2="${XE}" y2="${Yf(v)}" stroke="#55627f" stroke-width="0.6"/>`;if(v!==top)s+=`<text x="${x0+3}" y="${Yf(v)-3}" text-anchor="start" font-size="10" fill="#8e9bb8">${f(v)}</text>`;}};
   const title=(y,t)=>{s+=`<text x="${x0}" y="${y}" font-size="11" fill="#c9d2e3">${t}</text>`;};
   const bands=(Yf,e)=>{for(let i=0;i<3;i++)s+=`<rect x="${x0}" y="${Yf(e[i+1])}" width="${XE-x0}" height="${Yf(e[i])-Yf(e[i+1])}" fill="${COL[i]}" opacity="0.07"/>`;};
   const tiered=(fn,Yf,lvl,w,dash)=>{let segs=[],prev=null,seg=[];for(let x=0;x<=24.0001;x+=0.1){const v=fn(x);if(v==null){if(seg.length){segs.push({g:prev,pts:seg});seg=[];prev=null;}continue;}const g=lvl(x);if(prev!==null&&g!==prev){segs.push({g:prev,pts:seg});seg=[seg[seg.length-1]];}seg.push([x,v]);prev=g;}if(seg.length)segs.push({g:prev,pts:seg});
@@ -245,7 +245,7 @@ function drawDay(spot,dayStr,d){
       s+=`<text x="${cx}" y="${cy+(up?-20:17)}" text-anchor="middle" font-size="10" fill="#ffffff">${up?'High':'Low'} ${fmt(sk.turn)}</text>`;
       s+=`<text x="${cx}" y="${cy+(up?-8:29)}" text-anchor="middle" font-size="10" fill="#5ad38a">slack ${fmt(sk.t)}</text>`;
       if(sk.t>=0&&sk.t<=24){s+=`<circle cx="${X(sk.t)}" cy="${Yt(tm.tide(sk.t))}" r="4.5" fill="#1a2847" stroke="#5ad38a" stroke-width="2.2"/>`;}}
-    s+=`<text x="${XE}" y="${y0-8}" text-anchor="end" font-size="10" fill="#8e9bb8">current: ${cm.src}</text>`;
+
   }else{s+=`<text x="${(x0+XE)/2}" y="${(y0+y1)/2}" text-anchor="middle" font-size="12" fill="#8e9bb8">Tide data not loaded</text>`;}
   axisX(y1+13);
 
@@ -273,12 +273,12 @@ function drawDay(spot,dayStr,d){
   y0=Math.round(422*SY);y1=Math.round(527*SY);const hmax=om?Math.max(8,Math.ceil((Math.max(...[3,12,21].map(h=>om.wave(h)||0))+1)/2)*2):8;const Yh=v=>y1-(y1-y0)*v/hmax,Yp=v=>y1-(y1-y0)*v/20;
   title(y0-6,'Seas (ft, swell + chop) and swell period (s)');bands(Yh,[0,Math.min(S.swellGood,hmax),Math.min(S.swellMax,hmax),hmax]);
   const ht=[];for(let v=0;v<=hmax;v+=hmax>8?4:2)ht.push(v);grid(ht,v=>v+' ft',Yh);
-  for(const v of [0,10,20])s+=`<text x="${XE-3}" y="${Yp(v)-3}" text-anchor="end" font-size="10" fill="#8e9bb8">${v} s</text>`;
+  for(const v of [0,10])s+=`<text x="${XE-3}" y="${Yp(v)-3}" text-anchor="end" font-size="10" fill="#8e9bb8">${v} s</text>`;
   if(om){tiered(om.per,Yp,()=>-2,2,true);tiered(om.sw,Yh,()=>-3,1.5,false);tiered(om.wave,Yh,sl,3);
     [3,12,21].forEach(h=>{const v=om.wave(h),p=om.per(h),sv=om.sw(h);if(v==null)return;s+=`<text x="${X(h)}" y="${Yh(v)+16}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.dir(h))} ${v.toFixed(1)} ft</text><text x="${X(h)}" y="${Yp(p)-7}" text-anchor="middle" font-size="10" fill="#8e9bb8">${Math.round(p)} s</text>`;});}
   axisX(y1+13);
   svg.innerHTML=s;
-  st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}</span>`:'');
+  st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'');
 }
 
 function moonPhase(ds){const [y,m,dd]=ds.split('-').map(Number);const t=Date.UTC(y,m-1,dd,20)/864e5-10962.76;const ph=((t/29.530588853)%1+1)%1;return {ill:(1-Math.cos(2*Math.PI*ph))/2,wax:ph<0.5};}
