@@ -134,7 +134,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-18.23';
+const TZ='America/Los_Angeles';const BUILD='2026-10-18.24';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -156,9 +156,10 @@ async function getJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(r.
 async function load(spot,force){
   const key='sf.data.'+spot;const now=Date.now();
   let d=data[spot]||store.get(key);
+  if(d&&d.build!==BUILD){d=null;data[spot]=null;}
   if(d&&!force&&now-d.fetched<6*3600e3){data[spot]=d;return d;}
   const sp=SPOTS[spot];const t0=addDays(todayStr(),-3),t1=addDays(todayStr(),30);
-  d={tides:null,cur:null,om:null,fetched:now,errors:[]};
+  d={tides:null,cur:null,om:null,fetched:now,errors:[],build:BUILD};
   const jobs=[
     getJSON(`https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&station=${sp.tide}&begin_date=${ymd(t0)}&end_date=${ymd(t1)}&datum=MLLW&time_zone=lst_ldt&units=english&interval=hilo&format=json`)
       .then(j=>{if(!j.predictions)throw new Error(j.error?j.error.message:'no data');d.tides=j.predictions.map(p=>({t:p.t,v:+p.v,type:p.type}));})
@@ -294,7 +295,9 @@ function drawDay(spot,dayStr,d){
     const pp=peaks(om.per,8,2),pl=peaks(x=>-(om.per(x)||0),8,1);[...pp,...pl.map(q=>({x:q.x}))].forEach(p=>{const h=p.x,v=om.per(h);if(v==null)return;const tx=clamp(X(h),x0+14,XE-14);s+=`<text x="${tx}" y="${Yp(v)-6}" text-anchor="middle" font-size="10" fill="#8e9bb8">${Math.round(v)} s</text>`;});}
   axisX(y1+13);
   svg.innerHTML=s;
-  st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'');
+  st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'')+(om?` <button id="btnHourly" style="background:var(--panel2);border:0;color:var(--fg2);font:inherit;font-size:11px;padding:1px 8px;border-radius:9px;">hourly</button>`:'');
+  const hb=document.getElementById('btnHourly');if(hb)hb.onclick=()=>{let rows='';for(let x=0;x<24;x++){const w=om.wind(x),g=om.gust(x),v=om.wave(x),p=om.per(x),dr=om.dir(x),wd=om.wdir(x);if(w==null&&v==null)continue;const wl=windLvlG(w,g),sl2=swellLvl(v,p,dr,spot);const c=l=>l==null?'#8e9bb8':['#5ad38a','#e9b949','#e36a6a'][l];rows+=`<tr><td>${fmt(x)}</td><td style="color:${c(wl)}">${w==null?'—':Math.round(w)+' g'+Math.round(g||0)} ${wd==null?'':compass(wd)}</td><td style="color:${c(sl2)}">${v==null?'—':v.toFixed(1)+' ft'} ${p==null?'':Math.round(p)+'s'} ${dr==null?'':compass(dr)}</td><td style="color:${cm&&Math.abs(cm.cur(x))<S.curMax?'#5ad38a':'#c9d2e3'}">${cm?Math.abs(cm.cur(x)).toFixed(1):'—'}</td></tr>`;}
+    openSheet(`<h2>${SPOTS[spot].short} · ${longDate(dayStr)}</h2><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${d.om.model||''} · wind mph (g = gust) · seas ft, swell period, direction · current kt (modeled)</div><table style="width:100%;font-size:12px;font-variant-numeric:tabular-nums;border-collapse:collapse"><tr style="color:var(--muted);font-size:10px"><th align=left>hour</th><th align=left>wind</th><th align=left>seas</th><th align=left>cur</th></tr>${rows}</table>`);};
 }
 
 function moonPhase(ds){const [y,m,dd]=ds.split('-').map(Number);const t=Date.UTC(y,m-1,dd,20)/864e5-10962.76;const ph=((t/29.530588853)%1+1)%1;return {ill:(1-Math.cos(2*Math.PI*ph))/2,wax:ph<0.5};}
@@ -411,7 +414,7 @@ document.getElementById('btnSettings').onclick=()=>{
    '<p class="note">Slack lags and peak speeds for every spot except the Golden Gate are estimated from the tide curve using coefficients fitted to NOAA\'s Point Lobos station. They are a starting point; tune them against your own drift readings.</p>');
   box.querySelector('#sSave').onclick=()=>{for(const k of Object.keys(DEFAULTS)){const el=box.querySelector('#s_'+k);if(el&&el.value!=='')S[k]=+el.value;}store.set('sf.settings',S);sheet.hidden=true;render();};
   box.querySelector('#sReset').onclick=()=>{S={...DEFAULTS};store.set('sf.settings',S);sheet.hidden=true;render();};
-  box.querySelector('#sRefresh').onclick=()=>{sheet.hidden=true;render(true);};
+  box.querySelector('#sRefresh').onclick=async()=>{sheet.hidden=true;for(const k of Object.keys(SPOTS)){data[k]=null;}await Promise.all(Object.keys(SPOTS).map(k=>load(k,true)));render();};
   box.querySelector('#sReload').onclick=()=>{location.href=location.pathname+'?v='+Date.now()+location.hash;};
 };
 render();
