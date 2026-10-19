@@ -135,7 +135,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-19.1';
+const TZ='America/Los_Angeles';const BUILD='2026-10-19.2';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -270,7 +270,7 @@ function drawDay(spot,dayStr,d){
   const sy=Math.round(226*SY);title(sy-14,'Optimal conditions');
   s+=`<rect x="${x0}" y="${sy-7}" width="${XE-x0}" height="14" rx="3" fill="#2a3a5c"/>`;
   if(cm&&om){let wins=[],prev=null,a=0;
-    for(let x=0;x<=24.0001;x+=0.1){const g=Math.abs(cm.cur(x))<S.curMax&&wl(x)===0&&sl(x)===0;if(prev!==null&&g!==prev){if(prev)wins.push([a,x]);a=x;}prev=g;}
+    for(let x=0;x<=24.0001;x+=0.1){const g=Math.abs(cm.cur(x))<S.curMax&&wl(x)===0&&sl(x)!==null&&sl(x)<2;if(prev!==null&&g!==prev){if(prev)wins.push([a,x]);a=x;}prev=g;}
     if(prev)wins.push([a,24]);wins=wins.map(w=>[Math.max(w[0],S.dayStart),Math.min(w[1],S.dayEnd)]).filter(w=>w[1]-w[0]>0.4);
     s+=`<rect x="${X(S.dayStart)}" y="${sy-9}" width="${X(S.dayEnd)-X(S.dayStart)}" height="18" rx="4" fill="none" stroke="#55627f" stroke-width="0.6"/>`;
     wins.forEach((w,i)=>{s+=`<rect x="${X(w[0])}" y="${sy-7}" width="${X(w[1])-X(w[0])}" height="14" rx="3" fill="#5ad38a"/>`;const cx=(X(w[0])+X(w[1]))/2;const tight=i>0&&cx-(X(wins[i-1][0])+X(wins[i-1][1]))/2<78;s+=`<text x="${cx}" y="${sy+(tight?34:22)}" text-anchor="middle" font-size="10" fill="#5ad38a">${fmt(w[0])}–${fmt(w[1])}</text>`;});
@@ -315,7 +315,7 @@ function drawCal(spot,d){
       if(hrs.length){exposed=hrs.some(r=>swellInfo(r.v,r.p,r.d,spot).exposed);const tier=arr=>{const n=arr.length,red=arr.filter(l=>l===2).length,grn=arr.filter(l=>l===0).length;return red>=n*0.3?2:(red===0&&grn>=n*0.7)?0:1;};
         wlv=tier(hrs.map(r=>r.wl));slv=tier(hrs.map(r=>r.sl));
         const bw=hrs.slice().sort((a,b)=>a.w-b.w),bs=hrs.slice().sort((a,b)=>a.v-b.v);wmax=Math.max(...hrs.map(r=>r.w));swv=bs[Math.floor(bs.length*0.75)].v;swp=bs[Math.floor(bs.length*0.75)].p;swd=bs[Math.floor(bs.length*0.75)].d;}}
-    const go=wlv===0&&slv===0;
+    const go=wlv===0&&slv!==null&&slv<2;
     const mp=moonPhase(ds);const range=(hi!=null&&lo!=null)?hi-lo:0;const pct=Math.round(clamp(range/8,0.3,1)*100);
     const wd=dow(ds),we=wd==='Sat'||wd==='Sun';const [,mm,dd]=ds.split('-');const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mm-1];
     const pill=(txt,lvl,w)=>lvl==null?`<span class="pill n" style="width:${w}px">—</span>`:`<span class="pill ${'gyr'[lvl]}" style="width:${w}px">${txt}</span>`;
@@ -361,7 +361,7 @@ function drawSpots(){
     let tm=null,cm=null;if(d.tides){tm=tideModel(d.tides,today,ND*24+30);cm=currentModel(tm.ext,d.cur,today,ND*24+30);}
     const TH=28,BY=14;let svg=`<svg width="${W}" height="${TH}" viewBox="0 0 ${W} ${TH}" style="display:block">`;
     for(let dd=0;dd<ND;dd++){svg+=`<rect x="${LW+dd*DW}" y="${BY-4}" width="${DW}" height="8" rx="2" fill="#2a3a5c"/>`;
-      if(cm&&om){let a=null;for(let h=dd*24+S.dayStart;h<=dd*24+S.dayEnd+0.001;h+=0.1){const g=om.has(h)&&Math.abs(cm.cur(h))<S.curMax&&windLvlG(om.wind(h),om.gust(h))===0&&swellLvl(om.wave(h),om.per(h),om.dir(h),key)===0;if(g&&a===null)a=h;if((!g||h>=dd*24+S.dayEnd)&&a!==null){const b=g?h:h-0.1;if(b-a>0.4)svg+=`<rect x="${X(a)}" y="${BY-4}" width="${X(b)-X(a)}" height="8" rx="2" fill="#5ad38a"/>`;a=null;}}}}
+      if(cm&&om){let a=null;for(let h=dd*24+S.dayStart;h<=dd*24+S.dayEnd+0.001;h+=0.1){const g=om.has(h)&&Math.abs(cm.cur(h))<S.curMax&&windLvlG(om.wind(h),om.gust(h))===0&&(l2=>l2!==null&&l2<2)(swellLvl(om.wave(h),om.per(h),om.dir(h),key));if(g&&a===null)a=h;if((!g||h>=dd*24+S.dayEnd)&&a!==null){const b=g?h:h-0.1;if(b-a>0.4)svg+=`<rect x="${X(a)}" y="${BY-4}" width="${X(b)-X(a)}" height="8" rx="2" fill="#5ad38a"/>`;a=null;}}}}
     const tf=h=>{const f=fmt(h);return f.replace(/:00/,'').replace(/[ap]m$/,m=>m[0]);};
     if(tm){let lx=-99;for(const e of tm.ext){if(e[0]<0||e[0]>ND*24||!inDay(e[0]))continue;const x=X(e[0]);svg+=`<circle cx="${x}" cy="${BY}" r="2.6" fill="${e[2]==='H'?'#ffffff':'#8e9bb8'}"/>`;if(x-lx>24){svg+=`<text x="${x}" y="${TH-2}" text-anchor="middle" font-size="7" fill="${e[2]==='H'?'#ffffff':'#8e9bb8'}">${e[2]} ${tf(e[0])}</text>`;lx=x;}}
       lx=-99;for(const s of cm.slacks){if(s.t<0||s.t>ND*24||!inDay(s.t))continue;const x=X(s.t);svg+=`<circle cx="${x}" cy="${BY}" r="3" fill="#152038" stroke="#5ad38a" stroke-width="1.6"/>`;if(x-lx>24){svg+=`<text x="${x}" y="7" text-anchor="middle" font-size="7" fill="#5ad38a">${tf(s.t)}</text>`;lx=x;}}}
