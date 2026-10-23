@@ -135,7 +135,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-23.2';
+const TZ='America/Los_Angeles';const BUILD='2026-10-23.3';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -297,7 +297,7 @@ function drawDay(spot,dayStr,d){
   axisX(y1+13);
   s+=`<g id="now"></g><g id="scrub" style="display:none"></g>`;svg.innerHTML=s;
   dayCtx={x0,XE,X,top:12,bottom:y1,tide:tm?tm.tide:null,cur:cm?cm.cur:null,om,Yt,Yw,Yh,Yp};
-  if(window.__drawNow)window.__drawNow();if(window.__restoreScrub)window.__restoreScrub();
+  svg.style.touchAction='none';if(window.__drawNow)window.__drawNow();if(window.__restoreScrub)window.__restoreScrub();
   st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'')+(om?` <button id="btnHourly" style="background:var(--panel2);border:0;color:var(--fg2);font:inherit;font-size:11px;padding:1px 8px;border-radius:9px;">hourly</button>`:'');
   const hb=document.getElementById('btnHourly');if(hb)hb.onclick=()=>{let rows='';for(let x=0;x<24;x++){const w=om.wind(x),g=om.gust(x),v=om.wave(x),p=om.per(x),dr=om.dir(x),wd=om.wdir(x);if(w==null&&v==null)continue;const wl=windLvlG(w,g),sl2=swellLvl(v,p,dr,spot);const c=l=>l==null?'#8e9bb8':['#5ad38a','#e9b949','#e36a6a'][l];rows+=`<tr><td>${fmt(x)}</td><td style="color:${c(wl)}">${w==null?'—':Math.round(w)+' g'+Math.round(g||0)} ${wd==null?'':compass(wd)}</td><td style="color:${c(sl2)}">${v==null?'—':v.toFixed(1)+' ft'} ${p==null?'':Math.round(p)+'s'} ${dr==null?'':compass(dr)}</td><td style="color:${cm&&Math.abs(cm.cur(x))<S.curMax?'#5ad38a':'#c9d2e3'}">${cm?Math.abs(cm.cur(x)).toFixed(1):'—'}</td></tr>`;}
     openSheet(`<h2>${SPOTS[spot].short} · ${longDate(dayStr)}</h2><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${d.om.model||''} · wind mph (g = gust) · seas ft, swell period, direction · current kt (modeled)</div><table style="width:100%;font-size:12px;font-variant-numeric:tabular-nums;border-collapse:collapse"><tr style="color:var(--muted);font-size:10px"><th align=left>hour</th><th align=left>wind</th><th align=left>seas</th><th align=left>cur</th></tr>${rows}</table>`);};
@@ -415,13 +415,14 @@ document.addEventListener('visibilitychange',wake);window.addEventListener('page
   const hide=()=>{const g=svg.querySelector('#scrub');if(g)g.style.display='none';const n=svg.querySelector('#now');if(n)n.style.display='';};
   window.__drawNow=()=>{const n=svg.querySelector('#now');if(!n||!dayCtx)return;if(day!==todayStr()){n.innerHTML='';return;}const parts=new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'numeric',hour12:false}).formatToParts(new Date());const hh=(+parts.find(p=>p.type==='hour').value%24)+(+parts.find(p=>p.type==='minute').value)/60;n.innerHTML=readout(hh,true);};
   setInterval(()=>{if(view==='day'&&window.__drawNow)window.__drawNow();},60000);
-  svg.addEventListener('pointerdown',e=>{p={x:e.clientX,y:e.clientY,t:Date.now(),id:e.pointerId};scrub=false;clearTimeout(timer);try{svg.setPointerCapture(e.pointerId);}catch(x){}timer=setTimeout(()=>{if(p){scrub=true;showScrub(toX(p.x));}},120);});
+  svg.style.touchAction='none';svg.setAttribute('touch-action','none');
+  svg.addEventListener('pointerdown',e=>{e.preventDefault();p={x:e.clientX,y:e.clientY,t:Date.now(),id:e.pointerId};scrub=false;clearTimeout(timer);try{svg.setPointerCapture(e.pointerId);}catch(x){}timer=setTimeout(()=>{if(p){scrub=true;showScrub(toX(p.x));}},120);},{passive:false});
   svg.addEventListener('pointermove',e=>{if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;if(scrub){showScrub(toX(e.clientX));e.preventDefault();return;}
     if(Math.abs(dx)>14||Math.abs(dy)>14)clearTimeout(timer);});
   const end=e=>{clearTimeout(timer);if(!p)return;const dx=e.clientX-p.x,dt=Date.now()-p.t;const was=scrub;p=null;scrub=false;hide();
     if(!was&&Math.abs(dx)>50&&dt<600){day=addDays(day,dx<0?1:-1);setHash();render();return;}
     if(!was&&Math.abs(dx)<10&&dt<350){const r=svg.getBoundingClientRect();const fx=(e.clientX-r.left)/r.width;if(fx<0.3){day=addDays(day,-1);setHash();render();}else if(fx>0.7){day=addDays(day,1);setHash();render();}}};
-  svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',()=>{clearTimeout(timer);p=null;scrub=false;hide();});
+  svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',e=>{if(scrub){try{svg.setPointerCapture(e.pointerId);}catch(x){}return;}clearTimeout(timer);p=null;scrub=false;hide();});
   svg.addEventListener('touchstart',e=>{e.preventDefault();},{passive:false});svg.addEventListener('touchmove',e=>{e.preventDefault();},{passive:false});
 })();
 document.getElementById('calRows').addEventListener('click',e=>{const b=e.target.closest('.row');if(!b)return;day=b.dataset.day;view='day';setHash();render();window.scrollTo({top:0});});
