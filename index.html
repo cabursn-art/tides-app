@@ -130,12 +130,12 @@ const SPOTS={
  pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.47,lon:-122.55,cur:null,shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
  monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.65,lon:-121.95,cur:null,shadow:['NW','WNW','W'],open:['N','NNW']}
 };
-const DEFAULTS={fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,gustGood:17,gustMarg:28,curMax:0.7,swellGood:5,swellMax:7,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
+const DEFAULTS={fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,gustGood:17,gustMarg:28,windMax:0,curMax:0.7,swellGood:5,swellMax:7,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
 let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-23.3';
+const TZ='America/Los_Angeles';const BUILD='2026-10-25.1';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -176,7 +176,8 @@ async function load(spot,force){
       let sw=pick('swell_wave_height'),per=pick('swell_wave_period'),dir=pick('swell_wave_direction'),wave=pick('wave_height'),wper=pick('wave_period'),wdirv=pick('wave_direction');
       if(!live(per)&&live(wper))per=wper;if(!live(dir)&&live(wdirv))dir=wdirv;if(!live(sw)&&live(wave))sw=wave;if(!live(wave)&&live(sw))wave=sw;
       let wind=w.hourly.wind_speed_10m,gust=w.hourly.wind_gusts_10m,wtag=w._m;
-      if(w2&&w._m==='ECMWF'&&w2.hourly.time.length===w.hourly.time.length){wind=wind.map((v,i)=>{const b=w2.hourly.wind_speed_10m[i];return v==null?b:b==null?v:Math.max(v,b);});gust=gust.map((v,i)=>{const b=w2.hourly.wind_gusts_10m[i];return v==null?b:b==null?v:Math.max(v,b);});wtag='ECMWF+blend max';}
+      if(S.windMax&&w2&&w._m==='ECMWF'&&w2.hourly.time.length===w.hourly.time.length){wind=wind.map((v,i)=>{const b=w2.hourly.wind_speed_10m[i];return v==null?b:b==null?v:Math.max(v,b);});gust=gust.map((v,i)=>{const b=w2.hourly.wind_gusts_10m[i];return v==null?b:b==null?v:Math.max(v,b);});wtag='ECMWF+blend max';}
+      else if(w._m==='ECMWF'&&w2&&w2.hourly.time.length===w.hourly.time.length){wind=wind.map((v,i)=>v==null?w2.hourly.wind_speed_10m[i]:v);gust=gust.map((v,i)=>v==null?w2.hourly.wind_gusts_10m[i]:v);}
       d.om={time:m.hourly.time,sw,per,dir,wave,wper,wind,wdir:w.hourly.wind_direction_10m,gust,model:'waves '+m._m+' · wind '+wtag};
     })().catch(e=>d.errors.push('Wind/swell (Open-Meteo): '+e.message))
   ];
@@ -440,7 +441,7 @@ document.getElementById('btnSettings').onclick=()=>{
   const f=(k,l,step)=>`<label for="s_${k}">${l}</label><input id="s_${k}" type="number" step="${step||0.1}" value="${S[k]}">`;
   openSheet('<h2>Settings</h2><div class="btnrow" style="margin:0 0 14px"><button id="sRefresh" class="pri">Refresh data (all spots)</button><button id="sReload">Reload app · build '+BUILD+'</button></div><div class="set">'+
    '<h3>Fishing hours</h3>'+f('fishStart','Calendar pills judge from (hour, 0–23)',1)+f('fishEnd','…to (hour)',1)+f('dayStart','Day view windows from (hour)',1)+f('dayEnd','…to (hour)',1)+
-   '<h3>Thresholds</h3>'+f('curMax','Slow water: current under (kt)')+f('windGood','Good wind: up to (mph)',1)+f('windMarg','Marginal wind: up to (mph)',1)+f('gustGood','Gusts over this force at least yellow (mph)',1)+f('gustMarg','Gusts over this force red (mph)',1)+f('swellGood','Good seas: height up to (ft)',0.5)+f('swellMax','Marginal seas: height up to (ft)',0.5)+f('periodRatio','…and period at least × height',0.1)+f('openPenalty','Flag swell from exposed directions (1 on, 0 off)',1)+
+   '<h3>Thresholds</h3>'+f('curMax','Slow water: current under (kt)')+f('windGood','Good wind: up to (mph)',1)+f('windMarg','Marginal wind: up to (mph)',1)+f('gustGood','Gusts over this force at least yellow (mph)',1)+f('gustMarg','Gusts over this force red (mph)',1)+f('windMax','Conservative wind: take max of ECMWF and blend (1 on, 0 off)',1)+f('swellGood','Good seas: height up to (ft)',0.5)+f('swellMax','Marginal seas: height up to (ft)',0.5)+f('periodRatio','…and period at least × height',0.1)+f('openPenalty','Flag swell from exposed directions (1 on, 0 off)',1)+
    '<h3>Current model (Point Lobos fit)</h3>'+f('lagH0','Lag after high: base (min)',1)+f('lagH1','Lag after high: + per ft of swing',0.5)+f('lagL0','Lag after low: base (min)',1)+f('lagL1','Lag after low: + per ft of swing in',0.5)+f('lagL2','Lag after low: − per ft of swing out',0.5)+f('ktPerFt','Peak current per ft of swing (kt)',0.01)+
    '</div><div class="btnrow"><button id="sReset">Reset defaults</button><button id="sSave" class="pri">Save</button></div>'+
    '<p class="note">Slack lags and peak speeds for every spot except the Golden Gate are estimated from the tide curve using coefficients fitted to NOAA\'s Point Lobos station. They are a starting point; tune them against your own drift readings.</p>');
