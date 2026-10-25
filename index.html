@@ -138,12 +138,12 @@ const SPOTS={
  pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.47,lon:-122.55,cur:null,buoy:'46012',zone:'PZZ545',shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
  monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.65,lon:-121.95,cur:null,buoy:'46240',zone:'PZZ535',shadow:['NW','WNW','W'],open:['N','NNW']}
 };
-const DEFAULTS={fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,gustGood:17,gustMarg:28,windMax:0,curMax:0.7,swellGood:5,swellMax:7,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
+const DEFAULTS={relay:'',fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,gustGood:17,gustMarg:28,windMax:0,curMax:0.7,swellGood:5,swellMax:7,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
 let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-25.2';
+const TZ='America/Los_Angeles';const BUILD='2026-10-25.3';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -178,12 +178,12 @@ async function load(spot,force){
       const hind={time:null,models:{}};for(const [n,j] of res){if(!j)continue;const w=j.hourly.wind_speed_10m_previous_day1;if(!w||!w.some(v=>v!=null))continue;hind.time=hind.time||j.hourly.time;if(j.hourly.time.length!==hind.time.length)continue;hind.models[n]={wind:w,gust:j.hourly.wind_gusts_10m_previous_day1};}
       if(hind.time)d.hind=hind;})().catch(()=>{}),
     // buoy observations (NDBC realtime2; may be blocked by CORS -> stays null)
-    (async()=>{if(!sp.buoy)return;const r=await fetch(`https://www.ndbc.noaa.gov/data/realtime2/${sp.buoy}.txt`);if(!r.ok)throw new Error(r.status);const txt=await r.text();
+    (async()=>{if(!sp.buoy)return;const rel=(S.relay||'').replace(/\/$/,'');const url=rel?`${rel}/buoy/${sp.buoy}`:`https://www.ndbc.noaa.gov/data/realtime2/${sp.buoy}.txt`;const r=await fetch(url);if(!r.ok)throw new Error(r.status);const txt=await r.text();
       const rows=txt.split('\n').filter(l=>l&&l[0]!=='#').map(l=>l.trim().split(/\s+/)).filter(a=>a.length>=10);
       const num=v=>v==='MM'?null:+v;
       d.buoy=rows.map(a=>({t:Date.UTC(+a[0],+a[1]-1,+a[2],+a[3],+a[4]),wdir:num(a[5]),wind:num(a[6])==null?null:num(a[6])*2.237,gust:num(a[7])==null?null:num(a[7])*2.237,wvht:num(a[8])==null?null:num(a[8])*3.281,dpd:num(a[9])})).reverse();})().catch(e=>{d.buoyErr='Buoy '+sp.buoy+': '+e.message;}),
     // NWS coastal waters forecast text for this spot's zone
-    (async()=>{const r=await fetch('https://tgftp.nws.noaa.gov/data/raw/fz/fzus56.kmtr.cwf.mtr.txt');if(!r.ok)throw new Error(r.status);const txt=await r.text();
+    (async()=>{const rel=(S.relay||'').replace(/\/$/,'');const url=rel?`${rel}/nws/mtr`:'https://tgftp.nws.noaa.gov/data/raw/fz/fzus56.kmtr.cwf.mtr.txt';const r=await fetch(url);if(!r.ok)throw new Error(r.status);const txt=await r.text();
       const m=txt.match(new RegExp(sp.zone+'[\\s\\S]*?\\n\\$\\$','m'))||txt.match(new RegExp(sp.zone+'[\\s\\S]*?(?=\\nPZZ\\d{3})'));
       if(!m)throw new Error('zone not found');const block=m[0];
       const issued=(txt.match(/\d{3,4} [AP]M [A-Z]{3} \w{3} \w{3} \d+ \d{4}/)||[''])[0];
@@ -361,7 +361,7 @@ function drawDay(spot,dayStr,d){
   s+=`<g id="now"></g><g id="scrub" style="display:none"></g>`;svg.innerHTML=s;
   dayCtx={x0,XE,X,top:12,bottom:y1,tide:tm?tm.tide:null,cur:cm?cm.cur:null,om,Yt,Yw,Yh,Yp};
   svg.style.touchAction='none';if(window.__drawNow)window.__drawNow();if(window.__restoreScrub)window.__restoreScrub();
-  st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'')+(om?` <button id="btnHourly" style="background:var(--panel2);border:0;color:var(--fg2);font:inherit;font-size:11px;padding:1px 8px;border-radius:9px;">hourly</button>`:'');
+  st.innerHTML=(d.errors||[]).concat(d.buoyErr&&dayStr<todayStr()?[d.buoyErr+(S.relay?'':' — set a relay URL in Settings')]:[],d.nwsErr?[d.nwsErr+(S.relay?'':' — set a relay URL in Settings')]:[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'')+(om?` <button id="btnHourly" style="background:var(--panel2);border:0;color:var(--fg2);font:inherit;font-size:11px;padding:1px 8px;border-radius:9px;">hourly</button>`:'');
   const hbx=document.getElementById('hindBox');if(hbx){const bs2=d.buoy?buoySeries(d.buoy,dayStr):null;const hs2=d.hind?hindSeries(d.hind,dayStr):null;const sc=(dayStr<todayStr())?hindScore(hs2,bs2,S.fishStart,S.fishEnd):null;
     if(sc){hbx.hidden=false;hbx.innerHTML=`<span>vs buoy, ${fmt(S.fishStart)}–${fmt(S.fishEnd)}</span>`+Object.entries(sc).sort((a,b)=>a[1].mae-b[1].mae).map(([n,v])=>`<span><b>${n}</b> ±${v.mae.toFixed(1)} mph${v.bias>0.5?' (too windy)':v.bias<-0.5?' (too calm)':''}</span>`).join('');}
     else{hbx.hidden=true;}}
@@ -510,12 +510,13 @@ document.getElementById('btnSpot').onclick=()=>{
 document.getElementById('btnSettings').onclick=()=>{
   const f=(k,l,step)=>`<label for="s_${k}">${l}</label><input id="s_${k}" type="number" step="${step||0.1}" value="${S[k]}">`;
   openSheet('<h2>Settings</h2><div class="btnrow" style="margin:0 0 14px"><button id="sRefresh" class="pri">Refresh data (all spots)</button><button id="sReload">Reload app · build '+BUILD+'</button></div><div class="set">'+
+   '<h3>Data relay</h3><label for="s_relay">Relay URL (Cloudflare Worker, for buoy + NWS text)</label><input id="s_relay" type="url" style="width:100%;text-align:left" value="'+(S.relay||'')+'" placeholder="https://slack-finder-relay.you.workers.dev">'+
    '<h3>Fishing hours</h3>'+f('fishStart','Calendar pills judge from (hour, 0–23)',1)+f('fishEnd','…to (hour)',1)+f('dayStart','Day view windows from (hour)',1)+f('dayEnd','…to (hour)',1)+
    '<h3>Thresholds</h3>'+f('curMax','Slow water: current under (kt)')+f('windGood','Good wind: up to (mph)',1)+f('windMarg','Marginal wind: up to (mph)',1)+f('gustGood','Gusts over this force at least yellow (mph)',1)+f('gustMarg','Gusts over this force red (mph)',1)+f('windMax','Conservative wind: take max of ECMWF and blend (1 on, 0 off)',1)+f('swellGood','Good seas: height up to (ft)',0.5)+f('swellMax','Marginal seas: height up to (ft)',0.5)+f('periodRatio','…and period at least × height',0.1)+f('openPenalty','Flag swell from exposed directions (1 on, 0 off)',1)+
    '<h3>Current model (Point Lobos fit)</h3>'+f('lagH0','Lag after high: base (min)',1)+f('lagH1','Lag after high: + per ft of swing',0.5)+f('lagL0','Lag after low: base (min)',1)+f('lagL1','Lag after low: + per ft of swing in',0.5)+f('lagL2','Lag after low: − per ft of swing out',0.5)+f('ktPerFt','Peak current per ft of swing (kt)',0.01)+
    '</div><div class="btnrow"><button id="sReset">Reset defaults</button><button id="sSave" class="pri">Save</button></div>'+
    '<p class="note">Slack lags and peak speeds for every spot except the Golden Gate are estimated from the tide curve using coefficients fitted to NOAA\'s Point Lobos station. They are a starting point; tune them against your own drift readings.</p>');
-  box.querySelector('#sSave').onclick=()=>{for(const k of Object.keys(DEFAULTS)){const el=box.querySelector('#s_'+k);if(el&&el.value!=='')S[k]=+el.value;}store.set('sf.settings',S);sheet.hidden=true;render();};
+  box.querySelector('#sSave').onclick=()=>{for(const k of Object.keys(DEFAULTS)){const el=box.querySelector('#s_'+k);if(!el)continue;if(k==='relay'){S.relay=el.value.trim();continue;}if(el.value!=='')S[k]=+el.value;}store.set('sf.settings',S);for(const k of Object.keys(SPOTS))data[k]=null;sheet.hidden=true;render(true);};
   box.querySelector('#sReset').onclick=()=>{S={...DEFAULTS};store.set('sf.settings',S);sheet.hidden=true;render();};
   box.querySelector('#sRefresh').onclick=async()=>{sheet.hidden=true;for(const k of Object.keys(SPOTS)){data[k]=null;}await Promise.all(Object.keys(SPOTS).map(k=>load(k,true)));render();};
   box.querySelector('#sReload').onclick=()=>{location.href=location.pathname+'?v='+Date.now()+location.hash;};
