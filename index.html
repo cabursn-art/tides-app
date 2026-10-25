@@ -38,6 +38,12 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 .daynav .d small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
 .status{font-size:11px;color:var(--muted);min-height:14px;margin:0 6px 4px;display:flex;flex-wrap:wrap;gap:4px 12px}
 .status .err{color:var(--warn)}
+.nws{font-size:11px;color:var(--fg2);margin:0 6px 6px;line-height:1.35}
+.nws b{color:var(--fg);font-weight:600}
+.advp{display:inline-block;background:var(--bad);color:#3a0c0c;font-weight:600;font-size:10px;padding:1px 7px;border-radius:8px;margin-right:4px}
+.hindbox{display:flex;gap:8px;flex-wrap:wrap;margin:0 6px 6px;font-size:11px}
+.hindbox span{background:var(--panel2);border-radius:8px;padding:2px 8px;color:var(--fg2)}
+.hindbox b{color:var(--fg)}
 #chart{display:block;width:100%;height:auto}
 .moon{width:16px;height:16px;flex:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:11px;color:var(--fg2);margin-top:8px}
@@ -97,6 +103,8 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
   <div id="viewDay">
     <div class="daynav"><div class="d" id="dayTitle">Loading…</div></div>
     <div class="status" id="statusDay"></div>
+    <div class="nws" id="nwsStrip" hidden></div>
+    <div class="hindbox" id="hindBox" hidden></div>
     <svg id="chart" viewBox="0 0 380 585" role="img" aria-label="Tide, optimal conditions, wind and swell for the selected day"></svg>
   </div>
   <div id="viewCal" hidden>
@@ -123,19 +131,19 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 'use strict';
 // ---------- spots ----------
 const SPOTS={
- fortross:{name:'Fort Ross',short:'Fort Ross',tide:'9416024',lat:38.49,lon:-123.31,cur:null,shadow:[],open:['NW','WNW','W','SW']},
- duxbury:{name:'Duxbury Reef',short:'Duxbury',tide:'9415020',lat:37.86,lon:-122.76,cur:null,shadow:[],open:['W','WNW','NW','SW']},
- gate:{name:'Golden Gate ship channel',short:'Golden Gate',tide:'9414290',lat:37.77,lon:-122.62,cur:'PCT0201',shadow:[],open:['W','WNW','NW','SW']},
- pacifica:{name:'Pacifica · Pedro Point',short:'Pedro Point',tide:'9414131',lat:37.59,lon:-122.57,cur:null,shadow:[],open:['W','WNW','NW','SW','WSW']},
- pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.47,lon:-122.55,cur:null,shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
- monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.65,lon:-121.95,cur:null,shadow:['NW','WNW','W'],open:['N','NNW']}
+ fortross:{name:'Fort Ross',short:'Fort Ross',tide:'9416024',lat:38.49,lon:-123.31,cur:null,buoy:'46013',zone:'PZZ540',shadow:[],open:['NW','WNW','W','SW']},
+ duxbury:{name:'Duxbury Reef',short:'Duxbury',tide:'9415020',lat:37.86,lon:-122.76,cur:null,buoy:'46214',zone:'PZZ545',shadow:[],open:['W','WNW','NW','SW']},
+ gate:{name:'Golden Gate ship channel',short:'Golden Gate',tide:'9414290',lat:37.77,lon:-122.62,cur:'PCT0201',buoy:'46026',zone:'PZZ545',shadow:[],open:['W','WNW','NW','SW']},
+ pacifica:{name:'Pacifica · Pedro Point',short:'Pedro Point',tide:'9414131',lat:37.59,lon:-122.57,cur:null,buoy:'46012',zone:'PZZ545',shadow:[],open:['W','WNW','NW','SW','WSW']},
+ pillar:{name:'Pillar Point Harbor',short:'Pillar Point',tide:'9414131',lat:37.47,lon:-122.55,cur:null,buoy:'46012',zone:'PZZ545',shadow:['NW','WNW','NNW'],open:['S','SSW','SW','SSE']},
+ monterey:{name:'Monterey',short:'Monterey',tide:'9413450',lat:36.65,lon:-121.95,cur:null,buoy:'46240',zone:'PZZ535',shadow:['NW','WNW','W'],open:['N','NNW']}
 };
 const DEFAULTS={fishStart:6,fishEnd:16,dayStart:6,dayEnd:18,gustGood:17,gustMarg:28,windMax:0,curMax:0.7,swellGood:5,swellMax:7,periodRatio:2,windGood:9,windMarg:17,lagH0:27.6,lagH1:13.7,lagL0:72.3,lagL1:8.5,lagL2:12.9,ktPerFt:0.27,openPenalty:1};
 let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-25.1';
+const TZ='America/Los_Angeles';const BUILD='2026-10-25.2';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -160,8 +168,28 @@ async function load(spot,force){
   if(d&&d.build!==BUILD){d=null;data[spot]=null;}
   if(d&&!force&&now-d.fetched<60*60e3){data[spot]=d;return d;}
   const sp=SPOTS[spot];const t0=addDays(todayStr(),-3),t1=addDays(todayStr(),30);
-  d={tides:null,cur:null,om:null,fetched:now,errors:[],build:BUILD};
+  d={tides:null,cur:null,om:null,hind:null,buoy:null,nws:null,fetched:now,errors:[],build:BUILD};
+  const soft0=async u=>{try{const j=await getJSON(u);return j&&j.hourly?j:null;}catch(e){return null;}};
   const jobs=[
+    // day-before forecasts per model (what you would have seen the previous morning)
+    (async()=>{const base=`https://previous-runs-api.open-meteo.com/v1/forecast?latitude=${sp.lat}&longitude=${sp.lon}&hourly=wind_speed_10m_previous_day1,wind_gusts_10m_previous_day1&wind_speed_unit=mph&timezone=${encodeURIComponent(TZ)}&past_days=7&forecast_days=1`;
+      const cands=[['ECMWF','ecmwf_ifs025'],['GFS','ncep_gfs_seamless'],['HRRR','ncep_hrrr_conus'],['ICON','icon_seamless']];
+      const res=await Promise.all(cands.map(([n,m])=>soft0(base+'&models='+m).then(j=>[n,j])));
+      const hind={time:null,models:{}};for(const [n,j] of res){if(!j)continue;const w=j.hourly.wind_speed_10m_previous_day1;if(!w||!w.some(v=>v!=null))continue;hind.time=hind.time||j.hourly.time;if(j.hourly.time.length!==hind.time.length)continue;hind.models[n]={wind:w,gust:j.hourly.wind_gusts_10m_previous_day1};}
+      if(hind.time)d.hind=hind;})().catch(()=>{}),
+    // buoy observations (NDBC realtime2; may be blocked by CORS -> stays null)
+    (async()=>{if(!sp.buoy)return;const r=await fetch(`https://www.ndbc.noaa.gov/data/realtime2/${sp.buoy}.txt`);if(!r.ok)throw new Error(r.status);const txt=await r.text();
+      const rows=txt.split('\n').filter(l=>l&&l[0]!=='#').map(l=>l.trim().split(/\s+/)).filter(a=>a.length>=10);
+      const num=v=>v==='MM'?null:+v;
+      d.buoy=rows.map(a=>({t:Date.UTC(+a[0],+a[1]-1,+a[2],+a[3],+a[4]),wdir:num(a[5]),wind:num(a[6])==null?null:num(a[6])*2.237,gust:num(a[7])==null?null:num(a[7])*2.237,wvht:num(a[8])==null?null:num(a[8])*3.281,dpd:num(a[9])})).reverse();})().catch(e=>{d.buoyErr='Buoy '+sp.buoy+': '+e.message;}),
+    // NWS coastal waters forecast text for this spot's zone
+    (async()=>{const r=await fetch('https://tgftp.nws.noaa.gov/data/raw/fz/fzus56.kmtr.cwf.mtr.txt');if(!r.ok)throw new Error(r.status);const txt=await r.text();
+      const m=txt.match(new RegExp(sp.zone+'[\\s\\S]*?\\n\\$\\$','m'))||txt.match(new RegExp(sp.zone+'[\\s\\S]*?(?=\\nPZZ\\d{3})'));
+      if(!m)throw new Error('zone not found');const block=m[0];
+      const issued=(txt.match(/\d{3,4} [AP]M [A-Z]{3} \w{3} \w{3} \d+ \d{4}/)||[''])[0];
+      const adv=(block.match(/\.\.\.([^.]*(ADVISORY|WARNING|GALE)[^.]*)\.\.\./i)||[])[1]||null;
+      const periods=[];const re=/\.([A-Z][A-Z ]+?)\.\.\.([\s\S]*?)(?=\n\.[A-Z]|\n\$\$|$)/g;let mm;while((mm=re.exec(block))){periods.push({name:mm[1].trim(),text:mm[2].replace(/\s+/g,' ').trim()});}
+      d.nws={issued,adv,periods};})().catch(e=>{d.nwsErr='NWS: '+e.message;}),
     getJSON(`https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&station=${sp.tide}&begin_date=${ymd(t0)}&end_date=${ymd(t1)}&datum=MLLW&time_zone=lst_ldt&units=english&interval=hilo&format=json`)
       .then(j=>{if(!j.predictions)throw new Error(j.error?j.error.message:'no data');d.tides=j.predictions.map(p=>({t:p.t,v:+p.v,type:p.type}));})
       .catch(e=>d.errors.push('Tides (NOAA): '+e.message)),
@@ -187,7 +215,7 @@ async function load(spot,force){
   await Promise.all(jobs);
   // keep the previous good copy for anything that failed
   const prev=data[spot]||store.get(key);
-  if(prev){if(!d.tides&&prev.tides)d.tides=prev.tides;if(!d.om&&prev.om)d.om=prev.om;if(!d.cur&&prev.cur)d.cur=prev.cur;}
+  if(prev){if(!d.tides&&prev.tides)d.tides=prev.tides;if(!d.om&&prev.om)d.om=prev.om;if(!d.cur&&prev.cur)d.cur=prev.cur;if(!d.hind&&prev.hind)d.hind=prev.hind;if(!d.buoy&&prev.buoy)d.buoy=prev.buoy;if(!d.nws&&prev.nws)d.nws=prev.nws;}
   data[spot]=d;if(d.tides)store.set(key,d);return d;
 }
 
@@ -219,6 +247,29 @@ function currentModel(ext,curRows,dayStr,hmax){ // returns {cur(x), slacks:[{t,t
   const cur=x=>{for(const l of lobes){if(x>=l.a&&x<=l.b)return l.peak*Math.sin(Math.PI*(x-l.a)/(l.b-l.a));}return 0;};
   return {cur,slacks,src:curRows&&curRows.length>3?'NOAA':'modeled'};
 }
+
+function hindSeries(hind,dayStr){ // per-model day-before forecast as functions of hours from dayStr
+  if(!hind||!hind.time)return null;const idx=hind.time.map(t=>hoursFrom(dayStr,t));const out={};
+  const at=arr=>x=>{let i=0;while(i<idx.length-2&&x>idx[i+1])i++;if(x<idx[0]||x>idx[idx.length-1])return null;const a=arr[i],b=arr[i+1];if(a==null||b==null)return a==null?b:a;const u=clamp((x-idx[i])/(idx[i+1]-idx[i]),0,1);return a+(b-a)*u;};
+  for(const [n,m] of Object.entries(hind.models))out[n]={wind:at(m.wind),gust:at(m.gust||[])};
+  return {models:out,has:x=>x>=idx[0]&&x<=idx[idx.length-1]};
+}
+function buoySeries(buoy,dayStr){ // observations as functions of hours from dayStr (local)
+  if(!buoy||!buoy.length)return null;
+  const [y,m,dd]=dayStr.split('-').map(Number);
+  // local midnight of dayStr in UTC ms: use the TZ offset at that date
+  const probe=new Date(Date.UTC(y,m-1,dd,12));const parts=new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',hour12:false}).formatToParts(probe);const localH=+parts.find(p=>p.type==='hour').value%24;const off=12-localH;
+  const t0=Date.UTC(y,m-1,dd,off);
+  const pts=buoy.map(b=>({x:(b.t-t0)/36e5,...b})).filter(p=>p.x>-6&&p.x<30);
+  if(!pts.length)return null;
+  const at=k=>x=>{let best=null;for(const p of pts){if(p[k]==null)continue;if(best===null||Math.abs(p.x-x)<Math.abs(best.x-x))best=p;}return best&&Math.abs(best.x-x)<=1.5?best[k]:null;};
+  return {wind:at('wind'),gust:at('gust'),wvht:at('wvht'),dpd:at('dpd'),wdir:at('wdir'),first:Math.min(...pts.map(p=>p.x)),last:Math.max(...pts.map(p=>p.x))};
+}
+function hindScore(hs,bs,h0,h1){ // mean abs error per model over [h0,h1], mph; also bias
+  if(!hs||!bs)return null;const out={};
+  for(const [n,m] of Object.entries(hs.models)){let se=0,sb=0,c=0;for(let x=h0;x<=h1;x+=1){const f=m.wind(x),o=bs.wind(x);if(f==null||o==null)continue;se+=Math.abs(f-o);sb+=f-o;c++;}if(c>=4)out[n]={mae:se/c,bias:sb/c,n:c};}
+  return Object.keys(out).length?out:null;
+}
 function omSeries(om,dayStr){ // hourly arrays → functions of hours from dayStr
   if(!om)return null;const idx=om.time.map(t=>hoursFrom(dayStr,t));
   const at=arr=>x=>{let i=0;while(i<idx.length-2&&x>idx[i+1])i++;if(x<idx[0]||x>idx[idx.length-1]+1)return null;const a=arr[i],b=arr[i+1];if(a==null||b==null)return a==null?b:a;const u=clamp((x-idx[i])/(idx[i+1]-idx[i]),0,1);return a+(b-a)*u;};
@@ -246,7 +297,7 @@ function drawDay(spot,dayStr,d){
   const peaks=(fn,gap,n)=>{const pts=[];for(let x=0.5;x<=23.5;x+=0.5){const v=fn(x);if(v==null)continue;const a=fn(x-0.5),b=fn(x+0.5);if((a==null||v>=a)&&(b==null||v>b))pts.push({x,v});}
     pts.sort((p,q)=>q.v-p.v);const out=[];for(const p of pts){if(out.every(o=>Math.abs(o.x-p.x)>=gap))out.push(p);if(out.length>=n)break;}return out.sort((p,q)=>p.x-q.x);};
   const tiered=(fn,Yf,lvl,w,dash)=>{let segs=[],prev=null,seg=[];for(let x=0;x<=24.0001;x+=0.1){const v=fn(x);if(v==null){if(seg.length){segs.push({g:prev,pts:seg});seg=[];prev=null;}continue;}const g=lvl(x);if(prev!==null&&g!==prev){segs.push({g:prev,pts:seg});seg=[seg[seg.length-1]];}seg.push([x,v]);prev=g;}if(seg.length)segs.push({g:prev,pts:seg});
-    for(const sg of segs){const dd=sg.pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Yf(p[1]).toFixed(1)).join(' ');const c=sg.g===0?COL[0]:sg.g===1?COL[1]:sg.g===2?COL[2]:sg.g===-2?'#8e9bb8':sg.g===-3?'rgba(201,210,227,0.35)':'#ffffff';s+=`<path d="${dd}" fill="none" stroke="${c}" stroke-width="${w}"${dash?' stroke-dasharray="2,4"':''} stroke-linecap="round" stroke-linejoin="round"/>`;}return segs;};
+    for(const sg of segs){const dd=sg.pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Yf(p[1]).toFixed(1)).join(' ');const c=sg.g===0?COL[0]:sg.g===1?COL[1]:sg.g===2?COL[2]:sg.g===-2?'#8e9bb8':sg.g===-3?'rgba(201,210,227,0.35)':sg.g===-4?'#9e9e9e':'#ffffff';s+=`<path d="${dd}" fill="none" stroke="${c}" stroke-width="${w}"${dash?' stroke-dasharray="2,4"':''} stroke-linecap="round" stroke-linejoin="round"/>`;}return segs;};
 
   const tm=d.tides?tideModel(d.tides,dayStr):null;
   const lo=tm?Math.min(...tm.ext.filter(e=>e[0]>=-2&&e[0]<=26).map(e=>e[1]),-1):-2,hi=tm?Math.max(...tm.ext.filter(e=>e[0]>=-2&&e[0]<=26).map(e=>e[1]),6):7;
@@ -279,10 +330,21 @@ function drawDay(spot,dayStr,d){
   }else{s+=`<text x="${(x0+XE)/2}" y="${sy+22}" text-anchor="middle" font-size="10" fill="#8e9bb8">${om?'Needs tide data':'Needs wind and swell forecast'}</text>`;}
 
   // wind
-  y0=Math.round(286*SY);y1=Math.round(376*SY);const wmax=om?Math.max(20,Math.ceil((Math.max(...[3,9,15,21].map(h=>Math.max(om.wind(h)||0,om.gust(h)||0)))+2)/10)*10):20;const wy0=y0,wy1=y1;const Yw=v=>wy1-(wy1-wy0)*v/wmax;
+  y0=Math.round(286*SY);y1=Math.round(376*SY);const bsx=d.buoy?buoySeries(d.buoy,dayStr):null;const wmax=Math.max(20,Math.ceil((Math.max(...[3,9,15,21].map(h=>Math.max(om?om.wind(h)||0:0,om?om.gust(h)||0:0,bsx?bsx.gust(h)||0:0)))+2)/10)*10);const wy0=y0,wy1=y1;const Yw=v=>wy1-(wy1-wy0)*v/wmax;
   title(y0-6,'Wind (mph, dotted = gusts)');bands(Yw,[0,S.windGood,S.windMarg,wmax]);
   const wt=[];for(let v=0;v<=wmax;v+=10)wt.push(v);grid(wt,v=>v+' mph',Yw);
-  if(om){tiered(om.gust,Yw,()=>-2,2,true);tiered(om.wind,Yw,wl,3);peaks(x=>weff(om.wind(x),om.gust(x)),5,3).forEach(p=>{const h=p.x,w=om.wind(h),g=om.gust(h);if(w==null)return;const tx=clamp(X(h),x0+34,XE-34);s+=`<text x="${tx}" y="${Yw(Math.max(w,g||0))-8}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.wdir(h))} ${Math.round(w)}${g!=null?' g'+Math.round(g):''} mph</text>`;});}
+  const bs=d.buoy?buoySeries(d.buoy,dayStr):null;const hs=d.hind?hindSeries(d.hind,dayStr):null;const isPast=dayStr<todayStr();
+  if(isPast&&bs&&bs.wind(12)!=null){
+    // gap shading between day-before ECMWF forecast and observed
+    const prim=hs&&(hs.models.ECMWF||Object.values(hs.models)[0]);
+    if(prim){let dpath='';let up='',down='';for(let x=0;x<=24.0001;x+=0.25){const f=prim.wind(x),o=bs.wind(x);if(f==null||o==null){continue;}up+=(up?' L':'M')+X(x).toFixed(1)+' '+Yw(Math.max(f,o)).toFixed(1);}
+      let pts=[];for(let x=0;x<=24.0001;x+=0.25){const f=prim.wind(x),o=bs.wind(x);if(f==null||o==null)continue;pts.push([x,f,o]);}
+      if(pts.length>2){const d1=pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+' '+Yw(p[1]).toFixed(1)).join(' ');const d2=pts.slice().reverse().map(p=>'L'+X(p[0]).toFixed(1)+' '+Yw(p[2]).toFixed(1)).join(' ');s+=`<path d="${d1} ${d2} Z" fill="#e36a6a" opacity="0.18"/>`;}}
+    const MC={ECMWF:'#7fb3ff',GFS:'#c9a0ff',HRRR:'#ffb86b',ICON:'#9be7d0'};
+    if(hs)for(const [n,m] of Object.entries(hs.models)){tiered(m.wind,Yw,()=>-4,1.5,false);s=s.replace(/stroke="#9e9e9e"/g,`stroke="${MC[n]||'#aaa'}"`);}
+    tiered(bs.wind,Yw,()=>-1,3,false);tiered(bs.gust,Yw,()=>-2,1.5,true);
+    s+=`<text x="${x0+4}" y="${Yw(wmax)+22}" font-size="9" fill="#ffffff">solid = buoy ${SPOTS[spot].buoy}</text>`;let ly=Yw(wmax)+33;if(hs)for(const n of Object.keys(hs.models)){s+=`<text x="${x0+4}" y="${ly}" font-size="9" fill="${MC[n]||'#aaa'}">${n} day-before</text>`;ly+=11;}
+  }else if(om){tiered(om.gust,Yw,()=>-2,2,true);tiered(om.wind,Yw,wl,3);peaks(x=>weff(om.wind(x),om.gust(x)),5,3).forEach(p=>{const h=p.x,w=om.wind(h),g=om.gust(h);if(w==null)return;const tx=clamp(X(h),x0+34,XE-34);s+=`<text x="${tx}" y="${Yw(Math.max(w,g||0))-8}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.wdir(h))} ${Math.round(w)}${g!=null?' g'+Math.round(g):''} mph</text>`;});}
   else s+=`<text x="${(x0+XE)/2}" y="${(y0+y1)/2}" text-anchor="middle" font-size="12" fill="#8e9bb8">Forecast not available for this day</text>`;
   axisX(y1+13);
   // swell
@@ -300,6 +362,14 @@ function drawDay(spot,dayStr,d){
   dayCtx={x0,XE,X,top:12,bottom:y1,tide:tm?tm.tide:null,cur:cm?cm.cur:null,om,Yt,Yw,Yh,Yp};
   svg.style.touchAction='none';if(window.__drawNow)window.__drawNow();if(window.__restoreScrub)window.__restoreScrub();
   st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('')+(d.fetched?`<span>Updated ${new Date(d.fetched).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}${d.om&&d.om.model?' · '+d.om.model:''}${cm?' · current '+cm.src:''}</span>`:'')+(om?` <button id="btnHourly" style="background:var(--panel2);border:0;color:var(--fg2);font:inherit;font-size:11px;padding:1px 8px;border-radius:9px;">hourly</button>`:'');
+  const hbx=document.getElementById('hindBox');if(hbx){const bs2=d.buoy?buoySeries(d.buoy,dayStr):null;const hs2=d.hind?hindSeries(d.hind,dayStr):null;const sc=(dayStr<todayStr())?hindScore(hs2,bs2,S.fishStart,S.fishEnd):null;
+    if(sc){hbx.hidden=false;hbx.innerHTML=`<span>vs buoy, ${fmt(S.fishStart)}–${fmt(S.fishEnd)}</span>`+Object.entries(sc).sort((a,b)=>a[1].mae-b[1].mae).map(([n,v])=>`<span><b>${n}</b> ±${v.mae.toFixed(1)} mph${v.bias>0.5?' (too windy)':v.bias<-0.5?' (too calm)':''}</span>`).join('');}
+    else{hbx.hidden=true;}}
+  const nwsEl=document.getElementById('nwsStrip');if(nwsEl){if(d.nws&&d.nws.periods&&d.nws.periods.length){const today=todayStr();const off=Math.round((Date.UTC(...dayStr.split('-').map((v,i)=>i===1?+v-1:+v))-Date.UTC(...today.split('-').map((v,i)=>i===1?+v-1:+v)))/864e5);
+      const dn=['SUN','MON','TUE','WED','THU','FRI','SAT'][new Date(Date.UTC(...dayStr.split('-').map((v,i)=>i===1?+v-1:+v))).getUTCDay()];
+      let per=null;if(off===0)per=d.nws.periods.find(p=>/^(TODAY|THIS AFTERNOON|REST OF TODAY|TONIGHT)$/.test(p.name));else per=d.nws.periods.find(p=>p.name===dn)||d.nws.periods.find(p=>p.name.startsWith(dn));
+      nwsEl.hidden=false;nwsEl.innerHTML=(d.nws.adv&&off<=1?`<span class="advp">${d.nws.adv.replace(/\s+/g,' ')}</span> `:'')+(per?`<b>NWS ${per.name.toLowerCase()}:</b> ${per.text}`:`<b>NWS:</b> no period for this day (issued ${d.nws.issued})`);}
+    else{nwsEl.hidden=true;}}
   const hb=document.getElementById('btnHourly');if(hb)hb.onclick=()=>{let rows='';for(let x=0;x<24;x++){const w=om.wind(x),g=om.gust(x),v=om.wave(x),p=om.per(x),dr=om.dir(x),wd=om.wdir(x);if(w==null&&v==null)continue;const wl=windLvlG(w,g),sl2=swellLvl(v,p,dr,spot);const c=l=>l==null?'#8e9bb8':['#5ad38a','#e9b949','#e36a6a'][l];rows+=`<tr><td>${fmt(x)}</td><td style="color:${c(wl)}">${w==null?'—':Math.round(w)+' g'+Math.round(g||0)} ${wd==null?'':compass(wd)}</td><td style="color:${c(sl2)}">${v==null?'—':v.toFixed(1)+' ft'} ${p==null?'':Math.round(p)+'s'} ${dr==null?'':compass(dr)}</td><td style="color:${cm&&Math.abs(cm.cur(x))<S.curMax?'#5ad38a':'#c9d2e3'}">${cm?Math.abs(cm.cur(x)).toFixed(1):'—'}</td></tr>`;}
     openSheet(`<h2>${SPOTS[spot].short} · ${longDate(dayStr)}</h2><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${d.om.model||''} · wind mph (g = gust) · seas ft, swell period, direction · current kt (modeled)</div><table style="width:100%;font-size:12px;font-variant-numeric:tabular-nums;border-collapse:collapse"><tr style="color:var(--muted);font-size:10px"><th align=left>hour</th><th align=left>wind</th><th align=left>seas</th><th align=left>cur</th></tr>${rows}</table>`);};
 }
