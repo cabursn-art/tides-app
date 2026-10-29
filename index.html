@@ -38,6 +38,8 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 .daynav .d small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
 .status{font-size:11px;color:var(--muted);min-height:14px;margin:0 6px 4px;display:flex;flex-wrap:wrap;gap:4px 12px}
 .status .err{color:var(--warn)}
+.daypills{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 6px 6px}
+.daypills .pill{height:20px}
 .nws{font-size:11px;color:var(--fg2);margin:0 6px 6px;line-height:1.35}
 .nws b{color:var(--fg);font-weight:600}
 .advp{display:inline-block;background:var(--bad);color:#3a0c0c;font-weight:600;font-size:10px;padding:1px 7px;border-radius:8px;margin-right:4px}
@@ -103,6 +105,7 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
   <div id="viewDay">
     <div class="daynav"><div class="d" id="dayTitle">Loading…</div></div>
     <div class="status" id="statusDay"></div>
+    <div class="daypills" id="dayPills"></div>
     <div class="nws" id="nwsStrip" hidden></div>
     <div class="hindbox" id="hindBox" hidden></div>
     <svg id="chart" viewBox="0 0 380 585" role="img" aria-label="Tide, optimal conditions, wind and swell for the selected day"></svg>
@@ -143,7 +146,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-25.3';
+const TZ='America/Los_Angeles';const BUILD='2026-10-29.1';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -346,6 +349,8 @@ function drawDay(spot,dayStr,d){
     s+=`<text x="${x0+4}" y="${Yw(wmax)+22}" font-size="9" fill="#ffffff">solid = buoy ${SPOTS[spot].buoy}</text>`;let ly=Yw(wmax)+33;if(hs)for(const n of Object.keys(hs.models)){s+=`<text x="${x0+4}" y="${ly}" font-size="9" fill="${MC[n]||'#aaa'}">${n} day-before</text>`;ly+=11;}
   }else if(om){tiered(om.gust,Yw,()=>-2,2,true);tiered(om.wind,Yw,wl,3);peaks(x=>weff(om.wind(x),om.gust(x)),5,3).forEach(p=>{const h=p.x,w=om.wind(h),g=om.gust(h);if(w==null)return;const tx=clamp(X(h),x0+34,XE-34);s+=`<text x="${tx}" y="${Yw(Math.max(w,g||0))-8}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.wdir(h))} ${Math.round(w)}${g!=null?' g'+Math.round(g):''} mph</text>`;});}
   else s+=`<text x="${(x0+XE)/2}" y="${(y0+y1)/2}" text-anchor="middle" font-size="12" fill="#8e9bb8">Forecast not available for this day</text>`;
+  const dim=(ya,yb)=>{s+=`<rect x="${x0}" y="${ya}" width="${X(S.fishStart)-x0}" height="${yb-ya}" fill="#152038" opacity="0.5"/><rect x="${X(S.fishEnd)}" y="${ya}" width="${XE-X(S.fishEnd)}" height="${yb-ya}" fill="#152038" opacity="0.5"/>`;};
+  dim(wy0,wy1);
   axisX(y1+13);
   // swell
   y0=Math.round(422*SY);y1=Math.round(527*SY);const hmax=om?Math.max(8,Math.ceil((Math.max(...[3,12,21].map(h=>om.wave(h)||0))+1)/2)*2):8;const hy0=y0,hy1=y1;const Yh=v=>hy1-(hy1-hy0)*v/hmax,Yp=v=>hy1-(hy1-hy0)*v/20;
@@ -357,6 +362,7 @@ function drawDay(spot,dayStr,d){
     tiered(om.per,Yp,()=>-2,2,true);tiered(om.wave,Yh,sl,3);
     peaks(om.wave,6,3).forEach(p=>{const h=p.x,v=om.wave(h);const tx=clamp(X(h),x0+30,XE-30);s+=`<text x="${tx}" y="${Yh(v)-7}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.dir(h))} ${v.toFixed(1)} ft</text>`;});
     const pp=peaks(om.per,8,2),pl=peaks(x=>-(om.per(x)||0),8,1);[...pp,...pl.map(q=>({x:q.x}))].forEach(p=>{const h=p.x,v=om.per(h);if(v==null)return;const tx=clamp(X(h),x0+14,XE-14);s+=`<text x="${tx}" y="${Yp(v)-6}" text-anchor="middle" font-size="10" fill="#8e9bb8">${Math.round(v)} s</text>`;});}
+  dim(hy0,hy1);
   axisX(y1+13);
   s+=`<g id="now"></g><g id="scrub" style="display:none"></g>`;svg.innerHTML=s;
   dayCtx={x0,XE,X,top:12,bottom:y1,tide:tm?tm.tide:null,cur:cm?cm.cur:null,om,Yt,Yw,Yh,Yp};
@@ -365,6 +371,8 @@ function drawDay(spot,dayStr,d){
   const hbx=document.getElementById('hindBox');if(hbx){const bs2=d.buoy?buoySeries(d.buoy,dayStr):null;const hs2=d.hind?hindSeries(d.hind,dayStr):null;const sc=(dayStr<todayStr())?hindScore(hs2,bs2,S.fishStart,S.fishEnd):null;
     if(sc){hbx.hidden=false;hbx.innerHTML=`<span>vs buoy, ${fmt(S.fishStart)}–${fmt(S.fishEnd)}</span>`+Object.entries(sc).sort((a,b)=>a[1].mae-b[1].mae).map(([n,v])=>`<span><b>${n}</b> ±${v.mae.toFixed(1)} mph${v.bias>0.5?' (too windy)':v.bias<-0.5?' (too calm)':''}</span>`).join('');}
     else{hbx.hidden=true;}}
+  const dp=document.getElementById('dayPills');if(dp){const dt=dayTier(om,spot);const col3=['g','y','r'];const pill=(txt,lvl)=>lvl==null?'':`<span class="pill ${col3[lvl]}" style="padding:0 10px">${txt}</span>`;
+    dp.innerHTML=(dt.slv==null&&dt.wlv==null)?'':`<span style="color:var(--muted);font-size:11px">${fmt(S.fishStart)}–${fmt(S.fishEnd)}</span>`+pill(`seas ${dt.exposed?'⚑ ':''}${dt.swv==null?'':dt.swv.toFixed(1)+' ft · '+Math.round(dt.swp)+'s'}`,dt.slv)+pill(`wind ${dt.wmax==null?'':Math.round(dt.wmax)+' mph'}`,dt.wlv);}
   const nwsEl=document.getElementById('nwsStrip');if(nwsEl){if(d.nws&&d.nws.periods&&d.nws.periods.length){const today=todayStr();const off=Math.round((Date.UTC(...dayStr.split('-').map((v,i)=>i===1?+v-1:+v))-Date.UTC(...today.split('-').map((v,i)=>i===1?+v-1:+v)))/864e5);
       const dn=['SUN','MON','TUE','WED','THU','FRI','SAT'][new Date(Date.UTC(...dayStr.split('-').map((v,i)=>i===1?+v-1:+v))).getUTCDay()];
       let per=null;if(off===0)per=d.nws.periods.find(p=>/^(TODAY|THIS AFTERNOON|REST OF TODAY|TONIGHT)$/.test(p.name));else per=d.nws.periods.find(p=>p.name===dn)||d.nws.periods.find(p=>p.name.startsWith(dn));
@@ -376,17 +384,20 @@ function drawDay(spot,dayStr,d){
 
 function moonPhase(ds){const [y,m,dd]=ds.split('-').map(Number);const t=Date.UTC(y,m-1,dd,20)/864e5-10962.76;const ph=((t/29.530588853)%1+1)%1;return {ill:(1-Math.cos(2*Math.PI*ph))/2,wax:ph<0.5};}
 function moonSVG(f,wax){const r=7,rx=r*Math.abs(1-2*f),big=f>0.5?1:0;const lit=`M0,${-r} A${r},${r} 0 0 1 0,${r} A${rx},${r} 0 0 ${big} 0,${-r} Z`;return `<svg class="moon" width="16" height="16" viewBox="-8 -8 16 16"><circle r="${r}" fill="#2e3d5e" stroke="#8a97b3" stroke-width="0.6"/><g transform="scale(${wax?1:-1},1)"><path d="${lit}" fill="#e8edf7"/></g></svg>`;}
+function dayTier(om,spot){ // the calendar's judgment of a day over the fishing window
+  let wmax=null,swv=null,swp=null,swd=null,wlv=null,slv=null,exposed=false;
+  if(om&&om.has(S.fishStart)&&om.has(S.fishEnd)){const hrs=[];for(let x=S.fishStart;x<=S.fishEnd;x+=1){const w=om.wind(x),v=om.wave(x);if(w==null||v==null)continue;hrs.push({w,g:om.gust(x),v,p:om.per(x),d:om.dir(x),wl:windLvlG(w,om.gust(x)),sl:swellLvl(v,om.per(x),om.dir(x),spot)});}
+    if(hrs.length){exposed=hrs.some(r=>swellInfo(r.v,r.p,r.d,spot).exposed);const tier=arr=>{const n=arr.length,red=arr.filter(l=>l===2).length,grn=arr.filter(l=>l===0).length;return red>=n*0.3?2:(red===0&&grn>=n*0.7)?0:1;};
+      wlv=tier(hrs.map(r=>r.wl));slv=tier(hrs.map(r=>r.sl));
+      const bs=hrs.slice().sort((a,b)=>a.v-b.v);wmax=Math.max(...hrs.map(r=>r.w));const q=bs[Math.floor(bs.length*0.75)];swv=q.v;swp=q.p;swd=q.d;}}
+  return {wmax,swv,swp,swd,wlv,slv,exposed};
+}
 function drawCal(spot,d){
   const rows=document.getElementById('calRows');const st=document.getElementById('statusCal');const today=todayStr();
   let h='';const days=[];for(let i=-2;i<=27;i++)days.push(addDays(today,i));
   for(const ds of days){
     let lo=null,hi=null;if(d.tides){const vs=d.tides.filter(p=>p.t.slice(0,10)===ds).map(p=>p.v);if(vs.length){lo=Math.min(...vs);hi=Math.max(...vs);}}
-    const om=omSeries(d.om,ds);let wmax=null,swv=null,swp=null,swd=null;
-    let wlv=null,slv=null,exposed=false;
-    if(om&&om.has(S.fishStart)&&om.has(S.fishEnd)){const hrs=[];for(let x=S.fishStart;x<=S.fishEnd;x+=1){const w=om.wind(x),v=om.wave(x);if(w==null||v==null)continue;hrs.push({w,g:om.gust(x),v,p:om.per(x),d:om.dir(x),wl:windLvlG(w,om.gust(x)),sl:swellLvl(v,om.per(x),om.dir(x),spot)});}
-      if(hrs.length){exposed=hrs.some(r=>swellInfo(r.v,r.p,r.d,spot).exposed);const tier=arr=>{const n=arr.length,red=arr.filter(l=>l===2).length,grn=arr.filter(l=>l===0).length;return red>=n*0.3?2:(red===0&&grn>=n*0.7)?0:1;};
-        wlv=tier(hrs.map(r=>r.wl));slv=tier(hrs.map(r=>r.sl));
-        const bw=hrs.slice().sort((a,b)=>a.w-b.w),bs=hrs.slice().sort((a,b)=>a.v-b.v);wmax=Math.max(...hrs.map(r=>r.w));swv=bs[Math.floor(bs.length*0.75)].v;swp=bs[Math.floor(bs.length*0.75)].p;swd=bs[Math.floor(bs.length*0.75)].d;}}
+    const om=omSeries(d.om,ds);const dt=dayTier(om,spot);let {wmax,swv,swp,swd,wlv,slv,exposed}=dt;
     const go=wlv===0&&slv!==null&&slv<2;
     const mp=moonPhase(ds);const range=(hi!=null&&lo!=null)?hi-lo:0;const pct=Math.round(clamp(range/8,0.3,1)*100);
     const wd=dow(ds),we=wd==='Sat'||wd==='Sun';const [,mm,dd]=ds.split('-');const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mm-1];
