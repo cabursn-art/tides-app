@@ -146,7 +146,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-29.1';
+const TZ='America/Los_Angeles';const BUILD='2026-10-29.2';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -349,8 +349,6 @@ function drawDay(spot,dayStr,d){
     s+=`<text x="${x0+4}" y="${Yw(wmax)+22}" font-size="9" fill="#ffffff">solid = buoy ${SPOTS[spot].buoy}</text>`;let ly=Yw(wmax)+33;if(hs)for(const n of Object.keys(hs.models)){s+=`<text x="${x0+4}" y="${ly}" font-size="9" fill="${MC[n]||'#aaa'}">${n} day-before</text>`;ly+=11;}
   }else if(om){tiered(om.gust,Yw,()=>-2,2,true);tiered(om.wind,Yw,wl,3);peaks(x=>weff(om.wind(x),om.gust(x)),5,3).forEach(p=>{const h=p.x,w=om.wind(h),g=om.gust(h);if(w==null)return;const tx=clamp(X(h),x0+34,XE-34);s+=`<text x="${tx}" y="${Yw(Math.max(w,g||0))-8}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.wdir(h))} ${Math.round(w)}${g!=null?' g'+Math.round(g):''} mph</text>`;});}
   else s+=`<text x="${(x0+XE)/2}" y="${(y0+y1)/2}" text-anchor="middle" font-size="12" fill="#8e9bb8">Forecast not available for this day</text>`;
-  const dim=(ya,yb)=>{s+=`<rect x="${x0}" y="${ya}" width="${X(S.fishStart)-x0}" height="${yb-ya}" fill="#152038" opacity="0.5"/><rect x="${X(S.fishEnd)}" y="${ya}" width="${XE-X(S.fishEnd)}" height="${yb-ya}" fill="#152038" opacity="0.5"/>`;};
-  dim(wy0,wy1);
   axisX(y1+13);
   // swell
   y0=Math.round(422*SY);y1=Math.round(527*SY);const hmax=om?Math.max(8,Math.ceil((Math.max(...[3,12,21].map(h=>om.wave(h)||0))+1)/2)*2):8;const hy0=y0,hy1=y1;const Yh=v=>hy1-(hy1-hy0)*v/hmax,Yp=v=>hy1-(hy1-hy0)*v/20;
@@ -362,7 +360,6 @@ function drawDay(spot,dayStr,d){
     tiered(om.per,Yp,()=>-2,2,true);tiered(om.wave,Yh,sl,3);
     peaks(om.wave,6,3).forEach(p=>{const h=p.x,v=om.wave(h);const tx=clamp(X(h),x0+30,XE-30);s+=`<text x="${tx}" y="${Yh(v)-7}" text-anchor="middle" font-size="10" fill="#c9d2e3">${compass(om.dir(h))} ${v.toFixed(1)} ft</text>`;});
     const pp=peaks(om.per,8,2),pl=peaks(x=>-(om.per(x)||0),8,1);[...pp,...pl.map(q=>({x:q.x}))].forEach(p=>{const h=p.x,v=om.per(h);if(v==null)return;const tx=clamp(X(h),x0+14,XE-14);s+=`<text x="${tx}" y="${Yp(v)-6}" text-anchor="middle" font-size="10" fill="#8e9bb8">${Math.round(v)} s</text>`;});}
-  dim(hy0,hy1);
   axisX(y1+13);
   s+=`<g id="now"></g><g id="scrub" style="display:none"></g>`;svg.innerHTML=s;
   dayCtx={x0,XE,X,top:12,bottom:y1,tide:tm?tm.tide:null,cur:cm?cm.cur:null,om,Yt,Yw,Yh,Yp};
