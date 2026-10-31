@@ -57,6 +57,8 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
 .cal .hd span{text-align:center}
 .row{display:flex;align-items:center;height:42px;background:none;border:0;color:inherit;font:inherit;padding:0;width:100%;text-align:left;border-radius:6px}
 .row:active{background:var(--panel2)}
+.row.past{opacity:0.45}
+.row.past .bar{background:#2a3552}
 .row .mid{flex:1;display:flex;align-items:center;min-width:0}
 .row .bw{flex:1;display:flex;justify-content:center;min-width:0}
 .row .lo,.row .hi{flex:none;font-size:12px;color:var(--fg2);width:44px;font-variant-numeric:tabular-nums}
@@ -146,7 +148,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-31.2';
+const TZ='America/Los_Angeles';const BUILD='2026-10-31.3';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -170,7 +172,7 @@ async function load(spot,force){
   let d=data[spot]||store.get(key);
   if(d&&d.build!==BUILD){d=null;data[spot]=null;}
   if(d&&!force&&now-d.fetched<60*60e3){data[spot]=d;return d;}
-  const sp=SPOTS[spot];const t0=addDays(todayStr(),-3),t1=addDays(todayStr(),30);
+  const sp=SPOTS[spot];const t0=addDays(todayStr(),-62),t1=addDays(todayStr(),30);
   d={tides:null,cur:null,om:null,hind:null,buoy:null,nws:null,fetched:now,errors:[],build:BUILD};
   const soft0=async u=>{try{const j=await getJSON(u);return j&&j.hourly?j:null;}catch(e){return null;}};
   const jobs=[
@@ -197,8 +199,8 @@ async function load(spot,force){
       .then(j=>{if(!j.predictions)throw new Error(j.error?j.error.message:'no data');d.tides=j.predictions.map(p=>({t:p.t,v:+p.v,type:p.type}));})
       .catch(e=>d.errors.push('Tides (NOAA): '+e.message)),
     (async()=>{
-      const mUrl=mod=>`https://marine-api.open-meteo.com/v1/marine?latitude=${sp.lat}&longitude=${sp.lon}&hourly=swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period,wave_direction&length_unit=imperial&timezone=${encodeURIComponent(TZ)}&past_days=3&forecast_days=10${mod?'&models='+mod:''}`;
-      const wUrl=mod=>`https://api.open-meteo.com/v1/forecast?latitude=${sp.lat}&longitude=${sp.lon}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timezone=${encodeURIComponent(TZ)}&past_days=3&forecast_days=10${mod?'&models='+mod:''}`;
+      const mUrl=mod=>`https://marine-api.open-meteo.com/v1/marine?latitude=${sp.lat}&longitude=${sp.lon}&hourly=swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period,wave_direction&length_unit=imperial&timezone=${encodeURIComponent(TZ)}&past_days=62&forecast_days=10${mod?'&models='+mod:''}`;
+      const wUrl=mod=>`https://api.open-meteo.com/v1/forecast?latitude=${sp.lat}&longitude=${sp.lon}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph&timezone=${encodeURIComponent(TZ)}&past_days=62&forecast_days=10${mod?'&models='+mod:''}`;
       const tryBoth=async(a,b)=>{try{const j=await getJSON(a);if(j.hourly){j._m='ECMWF';return j;}}catch(e){}const j=await getJSON(b);j._m='blend';return j;};
       const soft=async u=>{try{const j=await getJSON(u);return j.hourly?j:null;}catch(e){return null;}};
       const [m,w,w2,m2]=await Promise.all([tryBoth(mUrl('ecmwf_wam025'),mUrl('')),tryBoth(wUrl('ecmwf_ifs025'),wUrl('')),soft(wUrl('')),soft(mUrl(''))]);
@@ -391,22 +393,23 @@ function dayTier(om,spot){ // the calendar's judgment of a day over the fishing 
 }
 function drawCal(spot,d){
   const rows=document.getElementById('calRows');const st=document.getElementById('statusCal');const today=todayStr();
-  let h='';const days=[];for(let i=-2;i<=27;i++)days.push(addDays(today,i));
+  let h='';const days=[];for(let i=-62;i<=27;i++)days.push(addDays(today,i));
   for(const ds of days){
     let lo=null,hi=null;if(d.tides){const vs=d.tides.filter(p=>p.t.slice(0,10)===ds).map(p=>p.v);if(vs.length){lo=Math.min(...vs);hi=Math.max(...vs);}}
     const om=omSeries(d.om,ds);const dt=dayTier(om,spot);let {wmax,swv,swp,swd,wlv,slv,exposed}=dt;
-    const go=wlv===0&&slv!==null&&slv<2;
+    const past=ds<today;const go=!past&&wlv===0&&slv!==null&&slv<2;
     const mp=moonPhase(ds);const range=(hi!=null&&lo!=null)?hi-lo:0;const pct=Math.round(clamp(range/8,0.3,1)*100);
     const wd=dow(ds),we=wd==='Sat'||wd==='Sun';const [,mm,dd]=ds.split('-');const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mm-1];
     const pill=(txt,lvl,w)=>lvl==null?`<span class="pill n" style="width:${w}px">—</span>`:`<span class="pill ${'gyr'[lvl]}" style="width:${w}px">${txt}</span>`;
-    h+=`<button class="row" data-day="${ds}">
+    h+=`<button class="row${past?' past':''}" data-day="${ds}"${ds===today?' id="calToday"':''}>
       <span class="mid"><span class="lo">${lo==null?'':lo.toFixed(1)+' ft'}</span><span class="bw">
       <span class="bar${ds===today?' today':''}${go?' go':''}" style="width:${pct}%">${moonSVG(mp.ill,mp.wax)}<span class="wd${we?' we':''}">${wd}</span>${mon} ${+dd}</span></span>
       <span class="hi">${hi==null?'':hi.toFixed(1)+' ft'}</span></span>
       <span class="pc" style="width:64px">${pill(swv==null?'':(exposed?'⚑ ':'')+swv.toFixed(1)+' · '+Math.round(swp)+'s',slv,58)}</span>
       <span class="pc" style="width:44px">${pill(wmax==null?'':Math.round(wmax),wlv,36)}</span></button>`;
   }
-  rows.innerHTML=h;document.getElementById('calHint').textContent=`Pills: ${fmt(S.fishStart)}–${fmt(S.fishEnd)}`;
+  rows.innerHTML=h;document.getElementById('calHint').textContent=`Pills: ${fmt(S.fishStart)}–${fmt(S.fishEnd)} · scroll up for past days`;
+  if(window.__calNeedScroll){window.__calNeedScroll=false;const t=document.getElementById('calToday');if(t){const hdr=document.querySelector('.hdr');const hh=hdr?hdr.getBoundingClientRect().height:0;requestAnimationFrame(()=>window.scrollTo({top:t.getBoundingClientRect().top+window.scrollY-hh-44}));}}
   st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('');
 }
 
@@ -452,7 +455,7 @@ function drawSpots(){
   st.innerHTML=errs.map(e=>`<span class="err">${e}</span>`).join('');
 }
 // ---------- app state / routing ----------
-let view='day',day=todayStr(),dayCtx=null;
+let view='day',day=todayStr(),dayCtx=null;window.__calNeedScroll=true;
 function parseHash(){const hs=location.hash.slice(1);if(hs==='cal'){view='cal';}else if(hs==='spots'){view='spots';}else if(/^day-\d{4}-\d{2}-\d{2}$/.test(hs)){view='day';day=hs.slice(4);}else view='day';}
 function setHash(){const want=view==='cal'?'cal':view==='spots'?'spots':'day-'+day;if(location.hash.slice(1)!==want)history.replaceState(null,'','#'+want);}
 async function render(force){
@@ -469,7 +472,7 @@ async function render(force){
   if(view==='day')drawDay(spotKey,day,d);else if(view==='cal')drawCal(spotKey,d);
 }
 document.getElementById('tabDay').onclick=()=>{view='day';setHash();render();};
-document.getElementById('tabCal').onclick=()=>{view='cal';setHash();render();};
+document.getElementById('tabCal').onclick=()=>{view='cal';window.__calNeedScroll=true;setHash();render();};
 document.getElementById('tabSpots').onclick=()=>{view='spots';setHash();render();};
 document.getElementById('strips').addEventListener('click',e=>{const el=document.getElementById('strips');const spEl=e.target.closest('.sp');if(!spEl)return;const inner=el.firstElementChild;const x=e.clientX-inner.getBoundingClientRect().left;const di=Math.floor((x-(+el.dataset.lw))/(+el.dataset.dw));if(di<0||di>6)return;spotKey=spEl.dataset.spot;store.set('sf.spot',spotKey);day=addDays(todayStr(),di);view='day';setHash();render();window.scrollTo({top:0});});
 window.addEventListener('resize',()=>{if(view==='day'||view==='spots')render();});
