@@ -148,7 +148,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-10-31.3';
+const TZ='America/Los_Angeles';const BUILD='2026-11-01.1';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -409,7 +409,7 @@ function drawCal(spot,d){
       <span class="pc" style="width:44px">${pill(wmax==null?'':Math.round(wmax),wlv,36)}</span></button>`;
   }
   rows.innerHTML=h;document.getElementById('calHint').textContent=`Pills: ${fmt(S.fishStart)}–${fmt(S.fishEnd)} · scroll up for past days`;
-  if(window.__calNeedScroll){window.__calNeedScroll=false;const t=document.getElementById('calToday');if(t){const hdr=document.querySelector('.hdr');const hh=hdr?hdr.getBoundingClientRect().height:0;requestAnimationFrame(()=>window.scrollTo({top:t.getBoundingClientRect().top+window.scrollY-hh-44}));}}
+  const t=document.getElementById('calToday');if(t&&!window.__calUserScrolled){const hdr=document.querySelector('.hdr');const hh=hdr?hdr.getBoundingClientRect().height:0;const go=()=>{const y=t.getBoundingClientRect().top+window.scrollY-hh-44;window.scrollTo({top:y});};go();requestAnimationFrame(go);setTimeout(go,60);}
   st.innerHTML=(d.errors||[]).map(e=>`<span class="err">${e}</span>`).join('');
 }
 
@@ -455,7 +455,7 @@ function drawSpots(){
   st.innerHTML=errs.map(e=>`<span class="err">${e}</span>`).join('');
 }
 // ---------- app state / routing ----------
-let view='day',day=todayStr(),dayCtx=null;window.__calNeedScroll=true;
+let view='day',day=todayStr(),dayCtx=null;window.__calUserScrolled=false;
 function parseHash(){const hs=location.hash.slice(1);if(hs==='cal'){view='cal';}else if(hs==='spots'){view='spots';}else if(/^day-\d{4}-\d{2}-\d{2}$/.test(hs)){view='day';day=hs.slice(4);}else view='day';}
 function setHash(){const want=view==='cal'?'cal':view==='spots'?'spots':'day-'+day;if(location.hash.slice(1)!==want)history.replaceState(null,'','#'+want);}
 async function render(force){
@@ -471,9 +471,10 @@ async function render(force){
   const d=await load(spotKey,force);
   if(view==='day')drawDay(spotKey,day,d);else if(view==='cal')drawCal(spotKey,d);
 }
-document.getElementById('tabDay').onclick=()=>{view='day';setHash();render();};
-document.getElementById('tabCal').onclick=()=>{view='cal';window.__calNeedScroll=true;setHash();render();};
-document.getElementById('tabSpots').onclick=()=>{view='spots';setHash();render();};
+document.getElementById('tabDay').onclick=()=>{view='day';window.__calUserScrolled=false;setHash();render();};
+document.getElementById('tabCal').onclick=()=>{view='cal';window.__calUserScrolled=false;setHash();render();};
+let __lastScroll=0;window.addEventListener('scroll',()=>{if(view!=='cal')return;if(Math.abs(window.scrollY-__lastScroll)>40&&document.getElementById('calToday'))window.__calUserScrolled=true;__lastScroll=window.scrollY;},{passive:true});
+document.getElementById('tabSpots').onclick=()=>{view='spots';window.__calUserScrolled=false;setHash();render();};
 document.getElementById('strips').addEventListener('click',e=>{const el=document.getElementById('strips');const spEl=e.target.closest('.sp');if(!spEl)return;const inner=el.firstElementChild;const x=e.clientX-inner.getBoundingClientRect().left;const di=Math.floor((x-(+el.dataset.lw))/(+el.dataset.dw));if(di<0||di>6)return;spotKey=spEl.dataset.spot;store.set('sf.spot',spotKey);day=addDays(todayStr(),di);view='day';setHash();render();window.scrollTo({top:0});});
 window.addEventListener('resize',()=>{if(view==='day'||view==='spots')render();});
 const staleAll=()=>{let old=false;for(const k of Object.keys(SPOTS)){const d=data[k]||store.get('sf.data.'+k);if(!d||Date.now()-d.fetched>15*60e3)old=true;}return old;};
