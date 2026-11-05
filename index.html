@@ -116,7 +116,7 @@ main{padding-block:12px calc(76px + env(safe-area-inset-bottom,0px));padding-lef
   <div id="viewCal" hidden>
     <div class="status" id="statusCal"></div>
     <div class="cal">
-      <div class="hd"><span style="flex:1" id="calHint"></span><span style="width:64px">Seas<br>ft · sec</span><span style="width:44px">Wind<br>mph</span></div>
+      <div class="hd"><span style="flex:1" id="calHint"></span><span style="width:64px">Seas</span><span style="width:60px">Wind</span></div>
       <div id="calRows"></div>
     </div>
   </div>
@@ -149,7 +149,7 @@ let S={...DEFAULTS};
 const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const saved=store.get('sf.settings');if(saved)S={...DEFAULTS,...saved};
 let spotKey=store.get('sf.spot')||'pillar';if(!SPOTS[spotKey])spotKey='pillar';
-const TZ='America/Los_Angeles';const BUILD='2026-11-05.1';
+const TZ='America/Los_Angeles';const BUILD='2026-11-05.2';
 
 // ---------- dates (all local to the Pacific coast) ----------
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -407,7 +407,7 @@ function drawCal(spot,d){
       <span class="bar${ds===today?' today':''}${go?' go':''}" style="width:${pct}%">${moonSVG(mp.ill,mp.wax)}<span class="wd${we?' we':''}">${wd}</span>${mon} ${+dd}</span></span>
       <span class="hi">${hi==null?'':hi.toFixed(1)+' ft'}</span></span>
       <span class="pc" style="width:64px">${pill(swv==null?'':(exposed?'⚑ ':'')+swv.toFixed(1)+' · '+Math.round(swp)+'s',slv,58)}</span>
-      <span class="pc" style="width:44px">${pill(wmax==null?'':Math.round(wmax),wlv,36)}</span></button>`;
+      <span class="pc" style="width:60px">${pill(wmax==null?'':Math.round(wmax)+' mph',wlv,54)}</span></button>`;
   }
   rows.innerHTML=h;document.getElementById('calHint').textContent=`Pills: ${fmt(S.fishStart)}–${fmt(S.fishEnd)} · scroll up for past days`;
   const t=document.getElementById('calToday');if(t&&!window.__calUserScrolled){const hdr=document.querySelector('.hdr');const hh=hdr?hdr.getBoundingClientRect().height:0;const go=()=>{const y=t.getBoundingClientRect().top+window.scrollY-hh-44;window.scrollTo({top:y});};go();requestAnimationFrame(go);setTimeout(go,60);}
